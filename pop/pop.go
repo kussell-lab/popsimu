@@ -17,6 +17,10 @@ type Pop struct {
 	Circled bool
 }
 
+func New() *Pop {
+	return &Pop{}
+}
+
 type Sequence []byte
 
 // Objects implementing the Handler interface
@@ -32,6 +36,10 @@ type Handler interface {
 type RandomPopGenerator struct {
 	// Rand is a source of random numbers
 	Rand *rand.Rand
+}
+
+func NewRandomPopGenerator(r *rand.Rand) *RandomPopGenerator {
+	return &RandomPopGenerator{Rand: r}
 }
 
 func (r *RandomPopGenerator) Operate(p *Pop) {
@@ -61,17 +69,23 @@ type SimpleMutator struct {
 	Rand *rand.Rand
 }
 
+func NewSimpleMutator(rate float64, r *rand.Rand) *SimpleMutator {
+	return &SimpleMutator{Rate: rate, Rand: r}
+}
+
 func (s *SimpleMutator) Operate(p *Pop) {
 	// We need to determine randomly which genome will have a mutation.
 	// and which position on the genome.
 	g := s.Rand.Intn(p.Size)
 	i := s.Rand.Intn(p.Length)
 	// Randomly choose a letter and replace the existed one.
-	a := p.Alphabet[s.Rand.Intn(len(p.Alphabet))]
-	for a == p.Genomes[g][i] {
-		a = p.Alphabet[s.Rand.Intn(len(p.Alphabet))]
+	alphabet := []byte{}
+	for j := 0; j < len(p.Alphabet); j++ {
+		if p.Alphabet[j] != p.Genomes[g][i] {
+			alphabet = append(alphabet, p.Alphabet[j])
+		}
 	}
-	p.Alphabet[s.Rand.Intn(len(p.Alphabet))] = a
+	p.Genomes[g][i] = alphabet[s.Rand.Intn(len(alphabet))]
 }
 
 // SimpleTransfer implements a very simple transfer model.
@@ -86,6 +100,10 @@ type SimpleTransfer struct {
 	FragmentSize int
 	// Rand is a source of random numbers.
 	Rand *rand.Rand
+}
+
+func NewSimpleTransfer(rate float64, fragSize int, r *rand.Rand) *SimpleTransfer {
+	return &SimpleTransfer{Rate: rate, FragmentSize: fragSize, Rand: r}
 }
 
 func (s *SimpleTransfer) Operate(p *Pop) {
@@ -138,14 +156,16 @@ func (o *OutTransfer) Operate(p *Pop) {
 	}
 }
 
-type GenericDriftSample func(p *Pop)
-
 // MoranSampler implements Moran reproduction model.
 //
 // In each step of Moran process, two individuals are randomly chose:
 // one to reproduce and the other to be replaced.
 type MoranSampler struct {
 	Rand *rand.Rand // random number generator.
+}
+
+func NewMoranSampler(r *rand.Rand) *MoranSampler {
+	return &MoranSampler{Rand: r}
 }
 
 func (m *MoranSampler) Operate(p *Pop) {
