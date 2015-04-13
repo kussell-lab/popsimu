@@ -1,9 +1,5 @@
 package pop
 
-import (
-	"math/rand"
-)
-
 type Pop struct {
 	// Size specifies the number of individuals in the population
 	Size int
@@ -21,6 +17,17 @@ func New() *Pop {
 	return &Pop{}
 }
 
+// Evolve a population following the operations.
+func Evolve(p *Pop, operations chan Operator) {
+	for ops := range operations {
+		ops.Operate(p)
+	}
+}
+
+type Operator interface {
+	Operate(*Pop)
+}
+
 type Sequence []byte
 
 // Objects implementing the Handler interface
@@ -35,10 +42,10 @@ type Handler interface {
 // and the length of the genome.
 type RandomPopGenerator struct {
 	// Rand is a source of random numbers
-	Rand *rand.Rand
+	Rand Rand
 }
 
-func NewRandomPopGenerator(r *rand.Rand) *RandomPopGenerator {
+func NewRandomPopGenerator(r Rand) *RandomPopGenerator {
 	return &RandomPopGenerator{Rand: r}
 }
 
@@ -66,10 +73,10 @@ type SimpleMutator struct {
 	// Rate sepcifies the mutation rate
 	Rate float64
 	// Rand is a source of random numbers
-	Rand *rand.Rand
+	Rand Rand
 }
 
-func NewSimpleMutator(rate float64, r *rand.Rand) *SimpleMutator {
+func NewSimpleMutator(rate float64, r Rand) *SimpleMutator {
 	return &SimpleMutator{Rate: rate, Rand: r}
 }
 
@@ -99,10 +106,10 @@ type SimpleTransfer struct {
 	// FragmentSize denotes the length of transferred fragments.
 	FragmentSize int
 	// Rand is a source of random numbers.
-	Rand *rand.Rand
+	Rand Rand
 }
 
-func NewSimpleTransfer(rate float64, fragSize int, r *rand.Rand) *SimpleTransfer {
+func NewSimpleTransfer(rate float64, fragSize int, r Rand) *SimpleTransfer {
 	return &SimpleTransfer{Rate: rate, FragmentSize: fragSize, Rand: r}
 }
 
@@ -161,10 +168,10 @@ func (o *OutTransfer) Operate(p *Pop) {
 // In each step of Moran process, two individuals are randomly chose:
 // one to reproduce and the other to be replaced.
 type MoranSampler struct {
-	Rand *rand.Rand // random number generator.
+	Rand Rand // random number generator.
 }
 
-func NewMoranSampler(r *rand.Rand) *MoranSampler {
+func NewMoranSampler(r Rand) *MoranSampler {
 	return &MoranSampler{Rand: r}
 }
 
