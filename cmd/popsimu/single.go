@@ -41,7 +41,7 @@ func (c *cmdSinglePop) Run(args []string) {
 	}
 
 	outFileName := c.outPrefix + "_ks.txt"
-	outFilePath := filepath.Join(c.outDir, outFileName)
+	outFilePath := filepath.Join(c.workspace, c.outDir, outFileName)
 	o, err := os.Create(outFilePath)
 	if err != nil {
 		panic(err)
