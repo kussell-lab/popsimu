@@ -1,31 +1,70 @@
 package pop
 
+import (
+	"runtime"
+	"sync"
+)
+
 type Pop struct {
 	// Size specifies the number of individuals in the population
 	Size int
 	// Length specifies the length of a genome
 	Length int
 	// Genomes stores a array of sequences
-	Genomes []Sequence
+	Genomes []Genome
 	// Alphabet stores the letters used in constructing the sequences
 	Alphabet []byte
 	// Circled indicates whether the genome is circled or not.
 	Circled bool
+
+	lk sync.Mutex
 }
 
 func New() *Pop {
 	return &Pop{}
 }
 
+func (p *Pop) Lock() {
+	p.lk.Lock()
+}
+
+func (p *Pop) Unlock() {
+	p.lk.Unlock()
+}
+
 // Evolve a population following the operations.
 func Evolve(p *Pop, operations chan Operator) {
-	for ops := range operations {
-		ops.Operate(p)
+	ncpu := runtime.GOMAXPROCS(0)
+	done := make(chan bool)
+	for i := 0; i < ncpu; i++ {
+		go func() {
+			for ops := range operations {
+				ops.Operate(p)
+			}
+			done <- true
+		}()
+	}
+
+	for i := 0; i < ncpu; i++ {
+		<-done
 	}
 }
 
 type Operator interface {
 	Operate(*Pop)
+}
+
+type Genome struct {
+	lk       sync.Mutex // locker
+	Sequence Sequence   // sequence
+}
+
+func (g *Genome) Lock() {
+	g.lk.Lock()
+}
+
+func (g *Genome) Unlock() {
+	g.lk.Unlock()
 }
 
 type Sequence []byte
@@ -57,10 +96,10 @@ func (r *RandomPopGenerator) Operate(p *Pop) {
 	}
 
 	// Make the genomes and copy the ancestor to each sequence.
-	genomes := make([]Sequence, p.Size)
+	genomes := make([]Genome, p.Size)
 	for i := 0; i < p.Size; i++ {
-		genomes[i] = make(Sequence, p.Length)
-		copy(genomes[i], ancestor)
+		genomes[i].Sequence = make(Sequence, p.Length)
+		copy(genomes[i].Sequence, ancestor)
 	}
 
 	p.Genomes = genomes
@@ -85,14 +124,17 @@ func (s *SimpleMutator) Operate(p *Pop) {
 	// and which position on the genome.
 	g := s.Rand.Intn(p.Size)
 	i := s.Rand.Intn(p.Length)
+	// Lock the genome
+	p.Genomes[g].Lock()
+	defer p.Genomes[g].Unlock()
 	// Randomly choose a letter and replace the existed one.
 	alphabet := []byte{}
 	for j := 0; j < len(p.Alphabet); j++ {
-		if p.Alphabet[j] != p.Genomes[g][i] {
+		if p.Alphabet[j] != p.Genomes[g].Sequence[i] {
 			alphabet = append(alphabet, p.Alphabet[j])
 		}
 	}
-	p.Genomes[g][i] = alphabet[s.Rand.Intn(len(alphabet))]
+	p.Genomes[g].Sequence[i] = alphabet[s.Rand.Intn(len(alphabet))]
 }
 
 // SimpleTransfer implements a very simple transfer model.
@@ -118,17 +160,25 @@ func (s *SimpleTransfer) Operate(p *Pop) {
 	a := s.Rand.Intn(p.Size)
 	b := s.Rand.Intn(p.Size)
 	if a != b {
+		// lock the population, in order to add two locker to its genomes
+		// to avoid racing.
+		p.Lock()
+		p.Genomes[a].Lock()
+		p.Genomes[b].Lock()
+		p.Unlock()
+		defer p.Genomes[a].Unlock()
+		defer p.Genomes[b].Unlock()
 		// Randomly determine the start point of the transfer
 		start := s.Rand.Intn(p.Length)
 		end := start + s.FragmentSize
 		// We need to check whether the end point hits the end of the sequence.
 		// And whether is a circled sequence or not.
 		if end < p.Length {
-			copy(p.Genomes[a][start:end], p.Genomes[b][start:end])
+			copy(p.Genomes[a].Sequence[start:end], p.Genomes[b].Sequence[start:end])
 		} else {
-			copy(p.Genomes[a][start:p.Length], p.Genomes[b][start:p.Length])
+			copy(p.Genomes[a].Sequence[start:p.Length], p.Genomes[b].Sequence[start:p.Length])
 			if p.Circled {
-				copy(p.Genomes[a][0:end-p.Length], p.Genomes[b][0:end-p.Length])
+				copy(p.Genomes[a].Sequence[0:end-p.Length], p.Genomes[b].Sequence[0:end-p.Length])
 			}
 		}
 	}
@@ -154,11 +204,11 @@ func (o *OutTransfer) Operate(p *Pop) {
 	end := start + o.FragmentSize
 	// We need to check whether the point hits the boundary of the sequence.
 	if end < p.Length {
-		copy(p.Genomes[b][start:end], o.DonorPop.Genomes[b][start:end])
+		copy(p.Genomes[b].Sequence[start:end], o.DonorPop.Genomes[b].Sequence[start:end])
 	} else {
-		copy(p.Genomes[a][start:p.Length], o.DonorPop.Genomes[b][start:p.Length])
+		copy(p.Genomes[a].Sequence[start:p.Length], o.DonorPop.Genomes[b].Sequence[start:p.Length])
 		if p.Circled {
-			copy(p.Genomes[a][0:end-p.Length], o.DonorPop.Genomes[b][0:end-p.Length])
+			copy(p.Genomes[a].Sequence[0:end-p.Length], o.DonorPop.Genomes[b].Sequence[0:end-p.Length])
 		}
 	}
 }
@@ -179,6 +229,14 @@ func (m *MoranSampler) Operate(p *Pop) {
 	a := m.Rand.Intn(p.Size)
 	b := m.Rand.Intn(p.Size)
 	if a != b {
-		copy(p.Genomes[a], p.Genomes[b])
+		// lock the population, in order to add two locker to its genomes
+		// to avoid racing.
+		p.Lock()
+		p.Genomes[a].Lock()
+		p.Genomes[b].Lock()
+		p.Unlock()
+		defer p.Genomes[a].Unlock()
+		defer p.Genomes[b].Unlock()
+		copy(p.Genomes[a].Sequence, p.Genomes[b].Sequence)
 	}
 }

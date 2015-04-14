@@ -65,7 +65,7 @@ func TestSingleMoran(t *testing.T) {
 				go func() {
 					defer close(operations)
 					// initialize the population
-					operations <- popGenOps
+					popGenOps.Operate(p)
 					for k := 0; k < numOfGens; k++ {
 						operations <- moranOps
 						tInterval := randist.ExponentialRandomFloat64(rng, 1.0/float64(popSize))
@@ -83,7 +83,6 @@ func TestSingleMoran(t *testing.T) {
 				}()
 
 				Evolve(p, operations)
-
 				d, _ := CalcKs(p)
 				mean.Increment(d)
 				vard.Increment(d)
