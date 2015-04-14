@@ -23,6 +23,10 @@ type cmdConfig struct {
 	outTraRate  float64 // transfer rate between two populations.
 	fragSize    int     // size of transferred fragments.
 	generations int     // number of generations to run
+
+	// output parameters.
+	outDir    string
+	outPrefix string
 }
 
 // Flags implements command package interface.
@@ -57,6 +61,9 @@ func (c *cmdConfig) Parse() {
 	c.outTraRate = config.GetFloat64("transfer.rate.out")
 	c.fragSize = config.GetInt("transfer.fragment.size")
 
+	// parse output parameters.
+	c.outDir = config.GetString("out.dir")
+	c.outPrefix = config.GetString("out.prefix")
 }
 
 // Init

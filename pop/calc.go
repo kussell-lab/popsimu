@@ -23,7 +23,7 @@ func CalcKs(p *Pop) (ks, vard float64) {
 	}
 
 	ks = m.GetResult()
-	vard = m.GetResult()
+	vard = v.GetResult()
 
 	return
 }

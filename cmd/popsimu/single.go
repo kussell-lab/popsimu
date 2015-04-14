@@ -2,81 +2,111 @@ package main
 
 import (
 	"fmt"
-	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/desc"
+	"github.com/mingzhi/gsl-cgo/randist"
 	"github.com/mingzhi/popsimu/pop"
-	"math"
-	"math/rand"
-	"time"
+	"os"
+	"path/filepath"
 )
 
 // This command implements simulation of a single population with horizontal gene transfer.
 
 type cmdSinglePop struct {
 	cmdConfig
+	rng *randist.RNG // we use gsl random library.
 }
 
+// Initialize command.
+// It parse flags and configure file settings.
+// and invoke config command init function.
 func (c *cmdSinglePop) Init() {
 	c.Parse()
 	c.cmdConfig.Init()
+
+	// initalize random number generator
+	c.rng = randist.NewRNG(randist.MT19937_1999)
 }
 
+// Run simulations.
 func (c *cmdSinglePop) Run(args []string) {
 	c.Init()
-	mean := desc.NewMean()
-	variance := desc.NewVarianceWithBiasCorrection()
+	ksMV := NewMeanVar()
+	vdMV := NewMeanVar()
 	for i := 0; i < c.popNum; i++ {
 		p := c.RunOne()
-		// calculator
-		ksCalc := pop.NewKsCalculator()
-		v := ksCalc.Calc(p)
-		mean.Increment(v)
-		variance.Increment(v)
+		// calcualte population parameters.
+		ks, vd := pop.CalcKs(p)
+		ksMV.Increment(ks)
+		vdMV.Increment(vd)
 	}
 
-	nu := float64(c.popSize) * c.mutRate
-	expect := nu / (1 + 4.0/3.0*nu)
-	result := mean.GetResult()
-	stderr := math.Sqrt(variance.GetResult() / float64(variance.GetN()))
-	fmt.Println(expect)
-	fmt.Printf("%f - %f\n", result-stderr, result+stderr)
+	outFileName := c.outPrefix + "_ks.txt"
+	outFilePath := filepath.Join(c.outDir, outFileName)
+	o, err := os.Create(outFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer o.Close()
+	o.WriteString("#Ks\tKsVar\tVd\tVdVar\tn\n")
+	o.WriteString(fmt.Sprintf("%f\t%f\t%f\t%f\t%d\n", ksMV.Mean.GetResult(), ksMV.Var.GetResult(), vdMV.Mean.GetResult(), vdMV.Var.GetResult(), vdMV.Mean.GetN()))
 }
 
+// Run one simulation.
 func (c *cmdSinglePop) RunOne() *pop.Pop {
-	// random number generator.
-	seed := time.Now().UnixNano()
-	src := rand.NewSource(seed)
-	r := rand.New(src)
-	// initalize population.
+	// initalize population
 	p := pop.New()
 	p.Size = c.popSize
 	p.Length = c.genomeLen
-	p.Alphabet = []byte{'A', 'T', 'G', 'C'}
-	// randomly generate the genome sequences.
-	popGenerator := pop.NewRandomPopGenerator(r)
-	popGenerator.Operate(p)
-	// possion generator.
-	t := 1.0 / float64(p.Size)
-	rate := t * (c.mutRate + c.inTraRate) * float64(p.Length*p.Size)
-	poisson := random.NewPoisson(1.0/rate, src)
-	// operators
-	sampler := pop.NewMoranSampler(r)
-	mutator := pop.NewSimpleMutator(c.mutRate, r)
-	transfer := pop.NewSimpleTransfer(c.inTraRate, c.fragSize, r)
-	for i := 0; i < c.generations; i++ {
-		sampler.Operate(p)
-		count := poisson.Int()
-		for j := 0; j < count; j++ {
-			// determine if it is a mutation or a transfer.
-			v := r.Float64()
-			if v <= c.mutRate/(c.mutRate+c.inTraRate) {
-				mutator.Operate(p)
-			} else {
-				transfer.Operate(p)
+	p.Alphabet = []byte{1, 2, 3, 4}
+
+	rand := randist.NewUniform(c.rng)
+	// population operators
+	popGenOps := pop.NewRandomPopGenerator(rand)
+	moranOps := pop.NewMoranSampler(rand)
+	mutationOps := pop.NewSimpleMutator(c.mutRate, rand)
+	transferOps := pop.NewSimpleTransfer(c.inTraRate, c.fragSize, rand)
+
+	// initalize the population
+	popGenOps.Operate(p)
+
+	// generate operations
+	opsChan := make(chan pop.Operator)
+	go func() {
+		defer close(opsChan)
+		for i := 0; i < c.generations; i++ {
+			opsChan <- moranOps
+			tInt := randist.ExponentialRandomFloat64(c.rng, 1.0/float64(p.Size))
+			totalRate := tInt * float64(p.Size*p.Length) * (c.mutRate + c.inTraRate)
+			count := randist.PoissonRandomInt(c.rng, totalRate)
+			for j := 0; j < count; j++ {
+				v := rand.Float64()
+				if v <= c.mutRate/(c.mutRate+c.inTraRate) {
+					opsChan <- mutationOps
+				} else {
+					opsChan <- transferOps
+				}
 			}
 		}
+	}()
 
-	}
-
+	pop.Evolve(p, opsChan)
 	return p
+}
+
+type MeanVar struct {
+	Mean *desc.Mean
+	Var  *desc.Variance
+}
+
+func (m *MeanVar) Increment(d float64) {
+	m.Mean.Increment(d)
+	m.Var.Increment(d)
+}
+
+func NewMeanVar() *MeanVar {
+	mv := MeanVar{}
+	mv.Mean = desc.NewMean()
+	mv.Var = desc.NewVarianceWithBiasCorrection()
+
+	return &mv
 }

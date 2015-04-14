@@ -24,12 +24,20 @@ func New() *Pop {
 	return &Pop{}
 }
 
-func (p *Pop) Lock() {
+func (p *Pop) LockGenomes(genomeIndex int, optionIndices ...int) {
 	p.lk.Lock()
+	defer p.lk.Unlock()
+	p.Genomes[genomeIndex].Lock()
+	for i := 0; i < len(optionIndices); i++ {
+		p.Genomes[optionIndices[i]].Lock()
+	}
 }
 
-func (p *Pop) Unlock() {
-	p.lk.Unlock()
+func (p *Pop) UnlockGenomes(genomeIndex int, optionIndices ...int) {
+	p.Genomes[genomeIndex].Unlock()
+	for i := 0; i < len(optionIndices); i++ {
+		p.Genomes[optionIndices[i]].Unlock()
+	}
 }
 
 // Evolve a population following the operations.
@@ -50,6 +58,8 @@ func Evolve(p *Pop, operations chan Operator) {
 	}
 }
 
+// Objects implementing the Operator interface
+// can be used to do operations to a population.
 type Operator interface {
 	Operate(*Pop)
 }
@@ -68,12 +78,6 @@ func (g *Genome) Unlock() {
 }
 
 type Sequence []byte
-
-// Objects implementing the Handler interface
-// can be used to do operations in the Population.
-type Handler interface {
-	Operate(*Pop)
-}
 
 // RandomPopGenerator randomly generates a population
 // with a random ancestor
@@ -105,6 +109,26 @@ func (r *RandomPopGenerator) Operate(p *Pop) {
 	p.Genomes = genomes
 }
 
+// SimplePopGenerator generate a population with the same ancestor.
+type SimplePopGenerator struct {
+	ancestor Sequence
+}
+
+func NewSimplePopGenerator(ancestor Sequence) *SimplePopGenerator {
+	return &SimplePopGenerator{ancestor: ancestor}
+}
+
+func (s *SimplePopGenerator) Operate(p *Pop) {
+	// Make the genomes and copy the ancestor to each sequence.
+	genomes := make([]Genome, p.Size)
+	for i := 0; i < p.Size; i++ {
+		genomes[i].Sequence = make(Sequence, p.Length)
+		copy(genomes[i].Sequence, s.ancestor)
+	}
+
+	p.Genomes = genomes
+}
+
 // SimpleMutator implements a simple mutation model,
 // which assumes the same mutation rate on each site,
 // and equal transition rates between bases.
@@ -124,9 +148,9 @@ func (s *SimpleMutator) Operate(p *Pop) {
 	// and which position on the genome.
 	g := s.Rand.Intn(p.Size)
 	i := s.Rand.Intn(p.Length)
-	// Lock the genome
-	p.Genomes[g].Lock()
-	defer p.Genomes[g].Unlock()
+	// lock the genomes in order to avoid racing.
+	p.LockGenomes(g)
+	defer p.UnlockGenomes(g)
 	// Randomly choose a letter and replace the existed one.
 	alphabet := []byte{}
 	for j := 0; j < len(p.Alphabet); j++ {
@@ -160,14 +184,9 @@ func (s *SimpleTransfer) Operate(p *Pop) {
 	a := s.Rand.Intn(p.Size)
 	b := s.Rand.Intn(p.Size)
 	if a != b {
-		// lock the population, in order to add two locker to its genomes
-		// to avoid racing.
-		p.Lock()
-		p.Genomes[a].Lock()
-		p.Genomes[b].Lock()
-		p.Unlock()
-		defer p.Genomes[a].Unlock()
-		defer p.Genomes[b].Unlock()
+		// lock the genomes in order to avoid racing.
+		p.LockGenomes(a, b)
+		defer p.UnlockGenomes(a, b)
 		// Randomly determine the start point of the transfer
 		start := s.Rand.Intn(p.Length)
 		end := start + s.FragmentSize
@@ -229,14 +248,9 @@ func (m *MoranSampler) Operate(p *Pop) {
 	a := m.Rand.Intn(p.Size)
 	b := m.Rand.Intn(p.Size)
 	if a != b {
-		// lock the population, in order to add two locker to its genomes
-		// to avoid racing.
-		p.Lock()
-		p.Genomes[a].Lock()
-		p.Genomes[b].Lock()
-		p.Unlock()
-		defer p.Genomes[a].Unlock()
-		defer p.Genomes[b].Unlock()
+		// lock the genomes in order to avoid racing.
+		p.LockGenomes(a, b)
+		defer p.UnlockGenomes(a, b)
 		copy(p.Genomes[a].Sequence, p.Genomes[b].Sequence)
 	}
 }
