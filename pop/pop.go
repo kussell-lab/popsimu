@@ -42,7 +42,7 @@ func (p *Pop) UnlockGenomes(genomeIndex int, optionIndices ...int) {
 
 // Evolve a population following the operations.
 func Evolve(p *Pop, operations chan Operator) {
-	ncpu := runtime.GOMAXPROCS(0)
+	ncpu := runtime.GOMAXPROCS(0) * 10
 	done := make(chan bool)
 	for i := 0; i < ncpu; i++ {
 		go func() {
