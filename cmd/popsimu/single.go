@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/mingzhi/gomath/stat/desc"
 	"github.com/mingzhi/gsl-cgo/randist"
 	"github.com/mingzhi/popsimu/pop"
 	"os"
@@ -91,22 +90,4 @@ func (c *cmdSinglePop) RunOne() *pop.Pop {
 
 	pop.Evolve(p, opsChan)
 	return p
-}
-
-type MeanVar struct {
-	Mean *desc.Mean
-	Var  *desc.Variance
-}
-
-func (m *MeanVar) Increment(d float64) {
-	m.Mean.Increment(d)
-	m.Var.Increment(d)
-}
-
-func NewMeanVar() *MeanVar {
-	mv := MeanVar{}
-	mv.Mean = desc.NewMean()
-	mv.Var = desc.NewVarianceWithBiasCorrection()
-
-	return &mv
 }

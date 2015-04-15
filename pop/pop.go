@@ -18,6 +18,9 @@ type Pop struct {
 	Circled bool
 
 	lk sync.Mutex
+
+	// Operation channel.
+	OpsChan chan Operator
 }
 
 func New() *Pop {
@@ -37,6 +40,23 @@ func (p *Pop) UnlockGenomes(genomeIndex int, optionIndices ...int) {
 	p.Genomes[genomeIndex].Unlock()
 	for i := 0; i < len(optionIndices); i++ {
 		p.Genomes[optionIndices[i]].Unlock()
+	}
+}
+
+func (p *Pop) Evolve() {
+	ncpu := p.Size
+	done := make(chan bool)
+	for i := 0; i < ncpu; i++ {
+		go func() {
+			for ops := range p.OpsChan {
+				ops.Operate(p)
+			}
+			done <- true
+		}()
+	}
+
+	for i := 0; i < ncpu; i++ {
+		<-done
 	}
 }
 
@@ -212,6 +232,15 @@ type OutTransfer struct {
 	DonorPop *Pop
 }
 
+func NewOutTransfer(rate float64, fragSize int, donorPop *Pop, r Rand) *OutTransfer {
+	o := OutTransfer{}
+	o.Rate = rate
+	o.Rand = r
+	o.FragmentSize = fragSize
+	o.DonorPop = donorPop
+	return &o
+}
+
 func (o *OutTransfer) Operate(p *Pop) {
 	// We first randomly choose a sequence from the donor sequence,
 	// and a sequence from the receipient population.
@@ -223,11 +252,11 @@ func (o *OutTransfer) Operate(p *Pop) {
 	end := start + o.FragmentSize
 	// We need to check whether the point hits the boundary of the sequence.
 	if end < p.Length {
-		copy(p.Genomes[b].Sequence[start:end], o.DonorPop.Genomes[b].Sequence[start:end])
+		copy(p.Genomes[b].Sequence[start:end], o.DonorPop.Genomes[a].Sequence[start:end])
 	} else {
-		copy(p.Genomes[a].Sequence[start:p.Length], o.DonorPop.Genomes[b].Sequence[start:p.Length])
+		copy(p.Genomes[b].Sequence[start:p.Length], o.DonorPop.Genomes[a].Sequence[start:p.Length])
 		if p.Circled {
-			copy(p.Genomes[a].Sequence[0:end-p.Length], o.DonorPop.Genomes[b].Sequence[0:end-p.Length])
+			copy(p.Genomes[b].Sequence[0:end-p.Length], o.DonorPop.Genomes[a].Sequence[0:end-p.Length])
 		}
 	}
 }
