@@ -2,17 +2,18 @@ package main
 
 import (
 	"fmt"
-	"github.com/mingzhi/gsl-cgo/randist"
+	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/popsimu/pop"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // This command implements simulation of a single population with horizontal gene transfer.
 
 type cmdSinglePop struct {
 	cmdConfig
-	rng *randist.RNG // we use gsl random library.
 }
 
 // Initialize command.
@@ -21,9 +22,6 @@ type cmdSinglePop struct {
 func (c *cmdSinglePop) Init() {
 	c.Parse()
 	c.cmdConfig.Init()
-
-	// initalize random number generator
-	c.rng = randist.NewRNG(randist.MT19937_1999)
 }
 
 // Run simulations.
@@ -52,18 +50,22 @@ func (c *cmdSinglePop) Run(args []string) {
 
 // Run one simulation.
 func (c *cmdSinglePop) RunOne() *pop.Pop {
+	src := random.NewLockedSource(rand.NewSource(time.Now().UnixNano()))
+	r := rand.New(src)
 	// initalize population
 	p := pop.New()
 	p.Size = c.popSize
 	p.Length = c.genomeLen
 	p.Alphabet = []byte{1, 2, 3, 4}
 
-	rand := randist.NewUniform(c.rng)
 	// population operators
-	popGenOps := pop.NewRandomPopGenerator(rand)
-	moranOps := pop.NewMoranSampler(rand)
-	mutationOps := pop.NewSimpleMutator(c.mutRate, rand)
-	transferOps := pop.NewSimpleTransfer(c.inTraRate, c.fragSize, rand)
+	popGenOps := pop.NewRandomPopGenerator(r)
+	moranOps := pop.NewMoranSampler(r)
+	mutationOps := pop.NewSimpleMutator(c.mutRate, r)
+	transferOps := pop.NewSimpleTransfer(c.inTraRate, c.fragSize, r)
+
+	totalRate := float64(p.Length) * (c.mutRate + c.inTraRate)
+	poisson := random.NewPoisson(totalRate, src)
 
 	// initalize the population
 	popGenOps.Operate(p)
@@ -74,11 +76,9 @@ func (c *cmdSinglePop) RunOne() *pop.Pop {
 		defer close(opsChan)
 		for i := 0; i < c.generations; i++ {
 			opsChan <- moranOps
-			tInt := randist.ExponentialRandomFloat64(c.rng, 1.0/float64(p.Size))
-			totalRate := tInt * float64(p.Size*p.Length) * (c.mutRate + c.inTraRate)
-			count := randist.PoissonRandomInt(c.rng, totalRate)
+			count := poisson.Int()
 			for j := 0; j < count; j++ {
-				v := rand.Float64()
+				v := r.Float64()
 				if v <= c.mutRate/(c.mutRate+c.inTraRate) {
 					opsChan <- mutationOps
 				} else {
