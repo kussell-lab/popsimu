@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 type cmdTwoPops struct {
@@ -79,7 +80,7 @@ func (c *cmdTwoPops) Run(args []string) {
 
 func (c *cmdTwoPops) RunOne() {
 	// Prepare random number generator.
-	src := random.NewLockedSource(rand.NewSource(1))
+	src := random.NewLockedSource(rand.NewSource(time.Now().UnixNano()))
 
 	// Initalize populations.
 	for i := 0; i < len(c.popConfigs); i++ {
