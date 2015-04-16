@@ -7,11 +7,10 @@ import (
 
 // Population config
 type Config struct {
-	Pop *Pop
-
 	// population parameters
 	Size     int // population size
 	Length   int // length of genome
+	NumGen   int // number of generations.
 	Alphabet []byte
 
 	Mutation struct {
@@ -28,6 +27,16 @@ type Config struct {
 			Fragment int
 		}
 	}
+}
+
+func (c *Config) NewPop(popGenerator Operator) *Pop {
+	p := New()
+	p.Size = c.Size
+	p.Length = c.Length
+	p.Alphabet = c.Alphabet
+	popGenerator.Operate(p)
+
+	return p
 }
 
 func (c *Config) String() string {

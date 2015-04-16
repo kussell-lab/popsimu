@@ -1,14 +1,9 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"github.com/jacobstr/confer"
+	"encoding/json"
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/popsimu/pop"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -17,218 +12,179 @@ import (
 )
 
 type cmdTwoPops struct {
-	workspace  string
-	configFile string
-
-	numCPU  int
-	numGens int
-	numReps int
-
-	popConfigs []PopConfig
+	cmdConfig
 }
 
-func (c *cmdTwoPops) Flags(fs *flag.FlagSet) *flag.FlagSet {
-	fs.StringVar(&c.workspace, "w", "", "workspace")
-	fs.StringVar(&c.configFile, "c", "config.yaml", "configure yaml file")
-	fs.IntVar(&c.numCPU, "ncpu", runtime.NumCPU(), "number of CPUs for using")
-	return fs
+type Results struct {
+	PopConfigs  []pop.Config
+	CalcResults []CalcRes
 }
 
-func (c *cmdTwoPops) Parse() {
-	// Use confer package to parse configure file.
-	config := confer.NewConfig()
-	config.SetRootPath(c.workspace)
-	if err := config.ReadPaths(c.configFile); err != nil {
-		panic(err)
-	}
-	config.AutomaticEnv()
-
-	popFileName := config.GetString("pop.file")
-	popFilePath := filepath.Join(c.workspace, popFileName)
-	c.popConfigs = parsePopConfigs(popFilePath)
-
-	c.numGens = config.GetInt("pop.generations")
-	c.numReps = config.GetInt("pop.replicates")
-}
-
-func (c *cmdTwoPops) Init() {
-	c.Parse()
-	runtime.GOMAXPROCS(c.numCPU)
+type CalcRes struct {
+	Index []int
+	Ks    float64
+	Vd    float64
 }
 
 func (c *cmdTwoPops) Run(args []string) {
-	c.Init()
-
-	ksMV := NewMeanVar()
-	vdMV := NewMeanVar()
-
-	for i := 0; i < c.numReps; i++ {
-		c.RunOne()
-		// calculate population parameters.
-		p1 := c.popConfigs[0].Pop
-		p2 := c.popConfigs[1].Pop
-		ks, vd := pop.CrossKs(p1, p2)
-		ksMV.Increment(ks)
-		vdMV.Increment(vd)
+	c.ParsePopConfigs()
+	for i := 0; i < len(c.popConfigs); i++ {
+		c.popConfigs[i].NumGen = c.numGen
 	}
-	ks := ksMV.Mean.GetResult()
-	vd := vdMV.Mean.GetResult()
-	fmt.Printf("%f\t%f\n", ks, math.Sqrt(vd)/ks)
 
-	fmt.Printf("%f\t%f\t%f\t%f\t%d\n", ksMV.Mean.GetResult(), ksMV.Var.GetResult(), vdMV.Mean.GetResult(), vdMV.Var.GetResult(), vdMV.Mean.GetN())
+	runtime.GOMAXPROCS(c.ncpu)
+
+	results := Results{PopConfigs: c.popConfigs}
+	for i := 0; i < c.numRep; i++ {
+		pops := c.RunOne()
+		for i := 0; i < len(c.popConfigs); i++ {
+			p1 := pops[i]
+			ks, vd := pop.CalcKs(p1)
+			res := CalcRes{
+				Index: []int{i},
+				Ks:    ks,
+				Vd:    vd,
+			}
+
+			results.CalcResults = append(results.CalcResults, res)
+			for j := i + 1; j < len(c.popConfigs); j++ {
+				p2 := pops[j]
+				ks, vd := pop.CrossKs(p1, p2)
+				res := CalcRes{
+					Index: []int{i, j},
+					Ks:    ks,
+					Vd:    vd,
+				}
+				results.CalcResults = append(results.CalcResults, res)
+			}
+		}
+	}
+
+	outFileName := c.prefix + "_res.json"
+	outFilePath := filepath.Join(c.outdir, outFileName)
+	o, err := os.Create(outFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer o.Close()
+
+	encoder := json.NewEncoder(o)
+	if err := encoder.Encode(results); err != nil {
+		panic(err)
+	}
 }
 
-func (c *cmdTwoPops) RunOne() {
-	// Prepare random number generator.
-	src := random.NewLockedSource(rand.NewSource(time.Now().UnixNano()))
+func (c *cmdTwoPops) RunOne() []*pop.Pop {
+	// Random source.
+	randomSeed := time.Now().UnixNano()
+	randomSource := random.NewLockedSource(rand.NewSource(randomSeed))
 
-	// Initalize populations.
-	for i := 0; i < len(c.popConfigs); i++ {
-		c.popConfigs[i].Init()
-	}
-
-	// Create commom sequence ancestor.
-	seqAncestor := randomGenerateAncestor(c.popConfigs[0].Length, c.popConfigs[0].Alphabet)
+	// Create population generator (with common ancestor).
+	genomeSize := c.popConfigs[0].Length
+	alphabet := c.popConfigs[0].Alphabet
+	seqAncestor := randomGenerateAncestor(genomeSize, alphabet)
 	popGenerator := pop.NewSimplePopGenerator(seqAncestor)
-	for i := 0; i < len(c.popConfigs); i++ {
-		popGenerator.Operate(c.popConfigs[i].Pop)
+
+	// Generate population list.
+	pops := make([]*pop.Pop, len(c.popConfigs))
+	for i := 0; i < len(pops); i++ {
+		pops[i] = c.popConfigs[i].NewPop(popGenerator)
 	}
 
-	ratio := float64(c.popConfigs[0].Pop.Size) / float64(c.popConfigs[0].Pop.Size+c.popConfigs[1].Pop.Size)
-	mutRate1, mutRate2 := c.popConfigs[0].Mutation.Rate, c.popConfigs[1].Mutation.Rate
-	inTraRate1, inTraRate2 := c.popConfigs[0].Transfer.Rate.In, c.popConfigs[1].Transfer.Rate.In
-	outTraRate1, outTraRate2 := c.popConfigs[0].Transfer.Rate.Out, c.popConfigs[1].Transfer.Rate.Out
-	frag1, frag2 := c.popConfigs[0].Transfer.Fragment, c.popConfigs[1].Transfer.Fragment
-	genomeLen1, genomeLen2 := c.popConfigs[0].Length, c.popConfigs[1].Length
+	// Prepare possible events.
+	events := generateEvents(c.popConfigs, pops, randomSource)
+	moranEvents := generateMoranEvents(c.popConfigs, pops, randomSource)
 
-	rates := []float64{
-		mutRate1 * ratio * float64(genomeLen1),
-		mutRate2 * (1 - ratio) * float64(genomeLen2),
-		inTraRate1 * ratio * float64(genomeLen1),
-		inTraRate2 * (1 - ratio) * float64(genomeLen2),
-		outTraRate1 * ratio * float64(genomeLen1),
-		outTraRate2 * (1 - ratio) * float64(genomeLen2),
+	totalPopSize := 0
+	for i := 0; i < len(c.popConfigs); i++ {
+		totalPopSize += c.popConfigs[i].Size
 	}
 
 	totalRate := 0.0
-	for _, v := range rates {
-		totalRate += v
+	for i := 0; i < len(events); i++ {
+		// the rate unit is per genome per generation,
+		// so we need to rescale it by dividing the population size.
+		totalRate += events[i].Rate / float64(totalPopSize)
 	}
 
-	poisson := random.NewPoisson(totalRate, src)
-	r := rand.New(src)
+	// Poisson random source.
+	poisson := random.NewPoisson(totalRate, randomSource)
+	r := rand.New(randomSource)
 
-	moranOps := pop.NewMoranSampler(r)
-	mutOps1 := pop.NewSimpleMutator(mutRate1, r)
-	mutOps2 := pop.NewSimpleMutator(mutRate2, r)
-	inTraOps1 := pop.NewSimpleTransfer(inTraRate1, frag1, r)
-	inTraOps2 := pop.NewSimpleTransfer(inTraRate2, frag2, r)
-	outTraOps1 := pop.NewOutTransfer(outTraRate1, frag1, c.popConfigs[1].Pop, r)
-	outTraOps2 := pop.NewOutTransfer(outTraRate1, frag1, c.popConfigs[0].Pop, r)
-	operations := []pop.Operator{
-		mutOps1,
-		mutOps2,
-		inTraOps1,
-		inTraOps2,
-		outTraOps1,
-		outTraOps2,
-	}
-
+	// Create and load event channel.
+	eventChan := make(chan *pop.Event)
 	go func() {
-		for i := 0; i < c.numGens; i++ {
-			popIndex := findCategory([]float64{
-				float64(c.popConfigs[0].Pop.Size),
-				float64(c.popConfigs[1].Pop.Size),
-			}, r)
-			c.popConfigs[popIndex].Pop.OpsChan <- moranOps
+		defer close(eventChan)
+		for i := 0; i < c.numGen; i++ {
+			moranEvent := pop.Emit(moranEvents, r)
+			eventChan <- moranEvent
 
 			count := poisson.Int()
-			for j := 0; j < count; j++ {
-				opsIndex := findCategory(rates, r)
-				popIndex := opsIndex % 2
-				c.popConfigs[popIndex].Pop.OpsChan <- operations[opsIndex]
+			for c := 0; c < count; c++ {
+				event := pop.Emit(events, r)
+				eventChan <- event
 			}
-		}
-
-		for _, pc := range c.popConfigs {
-			close(pc.Pop.OpsChan)
 		}
 	}()
 
-	done := make(chan bool)
-	for i := 0; i < 2; i++ {
-		go func(index int) {
-			c.popConfigs[index].Pop.Evolve()
-			done <- true
-		}(i)
-	}
+	// Evolve.
+	pop.Evolve(eventChan)
 
-	for i := 0; i < 2; i++ {
-		<-done
-	}
+	return pops
 }
 
-func findCategory(proportions []float64, r *rand.Rand) (index int) {
-	totalRate := 0.0
-	for _, v := range proportions {
-		totalRate += v
-	}
-
-	rv := r.Float64()
-
-	t := 0.0
-	for i := 0; i < len(proportions); i++ {
-		t += proportions[i] / totalRate
-		if rv <= t {
-			index = i
-			return
+func generateMoranEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (moranEvents []*pop.Event) {
+	r := rand.New(src)
+	for i := 0; i < len(popConfigs); i++ {
+		event := &pop.Event{
+			Rate: float64(popConfigs[i].Size),
+			Ops:  pop.NewMoranSampler(r),
+			Pop:  pops[i],
 		}
+		moranEvents = append(moranEvents, event)
 	}
-
 	return
 }
 
-type PopConfig struct {
-	Pop *pop.Pop
+func generateEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (events []*pop.Event) {
+	r := rand.New(src)
+	for i := 0; i < len(popConfigs); i++ {
+		c := popConfigs[i]
 
-	Size     int
-	Length   int
-	Alphabet []byte
-	Mutation struct {
-		Rate float64
-	}
-
-	Transfer struct {
-		Rate struct {
-			In, Out float64
+		mutateEvent := &pop.Event{
+			Rate: c.Mutation.Rate * float64(c.Size*c.Length),
+			Ops:  pop.NewSimpleMutator(r),
+			Pop:  pops[i],
 		}
-		Fragment int
-	}
-}
+		events = append(events, mutateEvent)
 
-func (p *PopConfig) Init() {
-	p.Alphabet = []byte{1, 2, 3, 4}
-	p.Pop = pop.New()
-	p.Pop.Size = p.Size
-	p.Pop.Length = p.Length
-	p.Pop.Alphabet = p.Alphabet
-	p.Pop.OpsChan = make(chan pop.Operator)
-}
+		inTransferEvent := &pop.Event{
+			Rate: c.Transfer.In.Rate * float64(c.Size*c.Length),
+			Ops:  pop.NewSimpleTransfer(c.Transfer.In.Fragment, r),
+			Pop:  pops[i],
+		}
+		events = append(events, inTransferEvent)
 
-func parsePopConfigs(filename string) (popCfgs []PopConfig) {
-	f, err := os.Open(filename)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	content, err := ioutil.ReadAll(f)
-	if err != nil {
-		panic(err)
-	}
-
-	if err := yaml.Unmarshal(content, &popCfgs); err != nil {
-		panic(err)
+		outTransferEvents := []*pop.Event{}
+		totalSize := 0
+		for j := 0; j < len(popConfigs); j++ {
+			cj := popConfigs[j]
+			if i != j {
+				outE := &pop.Event{
+					Rate: c.Transfer.Out.Rate * float64(c.Size*c.Length*cj.Size),
+					Ops:  pop.NewOutTransfer(c.Transfer.Out.Fragment, pops[j], r),
+					Pop:  pops[i],
+				}
+				totalSize += cj.Size
+				outTransferEvents = append(outTransferEvents, outE)
+			}
+		}
+		// to rescale the out transfer event rate.
+		for j := 0; j < len(outTransferEvents); j++ {
+			e := outTransferEvents[j]
+			e.Rate = e.Rate / float64(totalSize) // cj.Size / totalSize
+			events = append(events, e)
+		}
 	}
 
 	return

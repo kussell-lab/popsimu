@@ -133,14 +133,12 @@ func (s *SimplePopGenerator) Operate(p *Pop) {
 // which assumes the same mutation rate on each site,
 // and equal transition rates between bases.
 type SimpleMutator struct {
-	// Rate sepcifies the mutation rate
-	Rate float64
 	// Rand is a source of random numbers
 	Rand Rand
 }
 
-func NewSimpleMutator(rate float64, r Rand) *SimpleMutator {
-	return &SimpleMutator{Rate: rate, Rand: r}
+func NewSimpleMutator(r Rand) *SimpleMutator {
+	return &SimpleMutator{Rand: r}
 }
 
 func (s *SimpleMutator) Operate(p *Pop) {
@@ -167,16 +165,14 @@ func (s *SimpleMutator) Operate(p *Pop) {
 // And a piece of the receiver's genome will be replaced by
 // a sequence at corresponding genomic positions.
 type SimpleTransfer struct {
-	// Rate specifies the transfer rate.
-	Rate float64
 	// FragmentSize denotes the length of transferred fragments.
 	FragmentSize int
 	// Rand is a source of random numbers.
 	Rand Rand
 }
 
-func NewSimpleTransfer(rate float64, fragSize int, r Rand) *SimpleTransfer {
-	return &SimpleTransfer{Rate: rate, FragmentSize: fragSize, Rand: r}
+func NewSimpleTransfer(fragSize int, r Rand) *SimpleTransfer {
+	return &SimpleTransfer{FragmentSize: fragSize, Rand: r}
 }
 
 func (s *SimpleTransfer) Operate(p *Pop) {
@@ -212,9 +208,8 @@ type OutTransfer struct {
 	DonorPop *Pop
 }
 
-func NewOutTransfer(rate float64, fragSize int, donorPop *Pop, r Rand) *OutTransfer {
+func NewOutTransfer(fragSize int, donorPop *Pop, r Rand) *OutTransfer {
 	o := OutTransfer{}
-	o.Rate = rate
 	o.Rand = r
 	o.FragmentSize = fragSize
 	o.DonorPop = donorPop
