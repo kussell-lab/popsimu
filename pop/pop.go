@@ -18,9 +18,6 @@ type Pop struct {
 	Circled bool
 
 	lk sync.Mutex
-
-	// Operation channel.
-	OpsChan chan Operator
 }
 
 func New() *Pop {
@@ -43,31 +40,14 @@ func (p *Pop) UnlockGenomes(genomeIndex int, optionIndices ...int) {
 	}
 }
 
-func (p *Pop) Evolve() {
-	ncpu := p.Size
+// Evolve a population by the channel of events.
+func Evolve(eventChan chan *Event) {
+	ncpu := runtime.GOMAXPROCS(0) * 100
 	done := make(chan bool)
 	for i := 0; i < ncpu; i++ {
 		go func() {
-			for ops := range p.OpsChan {
-				ops.Operate(p)
-			}
-			done <- true
-		}()
-	}
-
-	for i := 0; i < ncpu; i++ {
-		<-done
-	}
-}
-
-// Evolve a population following the operations.
-func Evolve(p *Pop, operations chan Operator) {
-	ncpu := runtime.GOMAXPROCS(0) * 10
-	done := make(chan bool)
-	for i := 0; i < ncpu; i++ {
-		go func() {
-			for ops := range operations {
-				ops.Operate(p)
+			for e := range eventChan {
+				e.Ops.Operate(e.Pop)
 			}
 			done <- true
 		}()
