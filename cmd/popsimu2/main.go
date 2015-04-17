@@ -103,9 +103,6 @@ func main() {
 		if err := encoder.Encode(res); err != nil {
 			panic(err)
 		}
-		if err := outfile.Sync(); err != nil {
-			panic(err)
-		}
 	}
 
 	outfile.Close()
