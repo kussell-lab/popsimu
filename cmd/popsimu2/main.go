@@ -46,7 +46,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	defer outfile.Close()
 
 	encoder = json.NewEncoder(outfile)
 }
@@ -101,11 +100,15 @@ func main() {
 	}()
 
 	for res := range resultChan {
-		encoder.Encode(res)
+		if err := encoder.Encode(res); err != nil {
+			panic(err)
+		}
 		if err := outfile.Sync(); err != nil {
 			panic(err)
 		}
 	}
+
+	close(outfile)
 }
 
 type ParameterSet struct {
