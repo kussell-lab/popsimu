@@ -24,6 +24,7 @@ var (
 	genStep   int    // number of generations for each step
 	genTime   int    // number of times
 
+	outfile *os.File
 	encoder *json.Encoder
 )
 
@@ -41,13 +42,13 @@ func init() {
 
 	outFileName := prefix + "_res.json"
 	outFilePath := filepath.Join(workspace, outdir, outFileName)
-	w, err := os.Create(outFilePath)
+	outfile, err := os.Create(outFilePath)
 	if err != nil {
 		panic(err)
 	}
-	defer w.Close()
+	defer outfile.Close()
 
-	encoder = json.NewEncoder(w)
+	encoder = json.NewEncoder(outfile)
 }
 
 func main() {
@@ -55,7 +56,7 @@ func main() {
 	runtime.GOMAXPROCS(ncpu)
 	// parse parameter sets.
 	filePath := filepath.Join(workspace, config)
-	fmt.Printf("config file path: %s", filePath)
+	fmt.Printf("config file path: %s\n", filePath)
 	parSets := parseParameterSets(filePath)
 	for i := 0; i < len(parSets); i++ {
 		fmt.Println(parSets[i])
@@ -101,6 +102,9 @@ func main() {
 
 	for res := range resultChan {
 		encoder.Encode(res)
+		if err := outfile.Sync(); err != nil {
+			panic(err)
+		}
 	}
 }
 
