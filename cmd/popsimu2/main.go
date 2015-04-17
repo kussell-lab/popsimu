@@ -52,7 +52,7 @@ func init() {
 }
 
 func main() {
-	ncpu := runtime.NumCPU()
+	ncpu := runtime.NumCPU() * 5
 	runtime.GOMAXPROCS(ncpu)
 	// parse parameter sets.
 	filePath := filepath.Join(workspace, config)
