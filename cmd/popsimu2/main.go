@@ -108,7 +108,7 @@ func main() {
 		}
 	}
 
-	close(outfile)
+	outfile.Close()
 }
 
 type ParameterSet struct {
