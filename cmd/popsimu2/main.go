@@ -23,6 +23,8 @@ var (
 	numRep    int    // number of replicates.
 	genStep   int    // number of generations for each step
 	genTime   int    // number of times
+
+	encoder *json.Encoder
 )
 
 func init() {
@@ -36,33 +38,6 @@ func init() {
 	flag.IntVar(&genTime, "t", 1, "number of times")
 
 	flag.Parse()
-}
-
-func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	// parse parameter sets.
-	filePath := filepath.Join(workspace, config)
-	parSets := parseParameterSets(filePath)
-	for i := 0; i < len(parSets); i++ {
-		fmt.Println(parSets[i])
-	}
-	popConfigCombinations := generatePopConfigs(parSets)
-
-	allResults := []Results{}
-	for _, comb := range popConfigCombinations {
-		res := Results{PopConfigs: comb}
-		for j := 0; j < numRep; j++ {
-			pops := createPops(comb)
-			numGen := 0
-			for i := 0; i < genTime; i++ {
-				simu.RunMoran(pops, comb, genStep)
-				numGen += genStep
-				calcResults := calculateResults(pops, numGen)
-				res.CalcResults = append(res.CalcResults, calcResults...)
-			}
-		}
-		allResults = append(allResults, res)
-	}
 
 	outFileName := prefix + "_res.json"
 	outFilePath := filepath.Join(workspace, outdir, outFileName)
@@ -72,9 +47,60 @@ func main() {
 	}
 	defer w.Close()
 
-	encoder := json.NewEncoder(w)
-	if err := encoder.Encode(allResults); err != nil {
-		panic(err)
+	encoder = json.NewEncoder(w)
+}
+
+func main() {
+	ncpu := runtime.NumCPU()
+	runtime.GOMAXPROCS(ncpu)
+	// parse parameter sets.
+	filePath := filepath.Join(workspace, config)
+	fmt.Printf("config file path: %s", filePath)
+	parSets := parseParameterSets(filePath)
+	for i := 0; i < len(parSets); i++ {
+		fmt.Println(parSets[i])
+	}
+	popConfigCombinations := generatePopConfigs(parSets)
+
+	jobChan := make(chan []pop.Config)
+	go func() {
+		defer close(jobChan)
+		for _, comb := range popConfigCombinations {
+			jobChan <- comb
+		}
+	}()
+
+	resultChan := make(chan Results)
+	done := make(chan bool)
+	for i := 0; i < ncpu; i++ {
+		go func() {
+			for comb := range jobChan {
+				res := Results{PopConfigs: comb}
+				for j := 0; j < numRep; j++ {
+					pops := createPops(comb)
+					numGen := 0
+					for i := 0; i < genTime; i++ {
+						simu.RunMoran(pops, comb, genStep)
+						numGen += genStep
+						calcResults := calculateResults(pops, numGen)
+						res.CalcResults = append(res.CalcResults, calcResults...)
+					}
+				}
+				resultChan <- res
+			}
+			done <- true
+		}()
+	}
+
+	go func() {
+		defer close(resultChan)
+		for i := 0; i < ncpu; i++ {
+			<-done
+		}
+	}()
+
+	for res := range resultChan {
+		encoder.Encode(res)
 	}
 }
 
