@@ -154,9 +154,10 @@ type Results struct {
 }
 
 type CalcRes struct {
-	Index  []int
-	Ks, Vd float64
-	NumGen int
+	Index          []int
+	Ks, Vd         float64
+	Cm, Ct, Cr, Cs []float64
+	NumGen         int
 }
 
 func calculateResults(pops []*pop.Pop, numGen int) []CalcRes {
@@ -170,8 +171,9 @@ func calculateResults(pops []*pop.Pop, numGen int) []CalcRes {
 			Vd:     vd,
 			NumGen: numGen,
 		}
-
+		res.Cm, res.Ct, res.Cr, res.Cs = pop.CalcCov(p1)
 		calcResults = append(calcResults, res)
+
 		for j := i + 1; j < len(pops); j++ {
 			p2 := pops[j]
 			ks, vd := pop.CrossKs(p1, p2)
@@ -181,6 +183,7 @@ func calculateResults(pops []*pop.Pop, numGen int) []CalcRes {
 				Vd:     vd,
 				NumGen: numGen,
 			}
+			res.Cm, res.Ct, res.Cr, res.Cs = pop.CrossCov(p1, p2)
 			calcResults = append(calcResults, res)
 		}
 	}
