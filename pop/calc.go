@@ -12,17 +12,19 @@ func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vard float64) {
 	m := desc.NewMean()
 	v := desc.NewVarianceWithBiasCorrection()
 
-	events := []*Event{&Event{Rate: float64(p.Size)}}
+	events := []*Event{&Event{Rate: float64(p.Size), Pop: p}}
 	for i := 0; i < len(others); i++ {
-		events = append(events, &Event{Rate: float64(others[i].Size)})
+		events = append(events, &Event{Rate: float64(others[i].Size), Pop: others[i]})
 	}
 	r := rand.New(random.NewLockedSource(rand.NewSource(1)))
 
 	for s := 0; s < sampleSize; s++ {
-		i, j := rand.Intn(int(Emit(events, r).Rate)), rand.Intn(int(Emit(events, r).Rate))
+		p1 := Emit(events, r).Pop
+		p2 := Emit(events, r).Pop
+		i, j := rand.Intn(p1.Size), rand.Intn(p2.Size)
 		m1 := desc.NewMean() // average distance between two sequences.
 		for k := 0; k < p.Length; k++ {
-			if p.Genomes[i].Sequence[k] == p.Genomes[j].Sequence[k] {
+			if p1.Genomes[i].Sequence[k] == p2.Genomes[j].Sequence[k] {
 				m1.Increment(0)
 			} else {
 				m1.Increment(1)
@@ -61,23 +63,25 @@ func CrossKs(sampleSize int, p1, p2 *Pop) (ks, vard float64) {
 	return
 }
 
-func CalcCov(sampleSize, maxL int, p *Pop, ps ...*Pop) (cm, ct, cr, cs []float64) {
+func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
 	if maxL > p.Length {
 		maxL = p.Length
 	}
 
-	events := []*Event{&Event{Rate: float64(p.Size)}}
-	for i := 0; i < len(ps); i++ {
-		events = append(events, &Event{Rate: float64(ps[i].Size)})
+	events := []*Event{&Event{Rate: float64(p.Size), Pop: p}}
+	for i := 0; i < len(others); i++ {
+		events = append(events, &Event{Rate: float64(others[i].Size), Pop: others[i]})
 	}
 	r := rand.New(random.NewLockedSource(rand.NewSource(1)))
 
 	for s := 0; s < sampleSize; s++ {
-		i, j := rand.Intn(int(Emit(events, r).Rate)), rand.Intn(int(Emit(events, r).Rate))
+		p1 := Emit(events, r).Pop
+		p2 := Emit(events, r).Pop
+		i, j := rand.Intn(p1.Size), rand.Intn(p2.Size)
 		profile := []float64{}
 		for k := 0; k < p.Length; k++ {
-			if p.Genomes[i].Sequence[k] != p.Genomes[j].Sequence[k] {
+			if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
 				profile = append(profile, 1)
 			} else {
 				profile = append(profile, 0)
