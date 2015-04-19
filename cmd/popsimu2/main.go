@@ -13,16 +13,19 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 var (
-	workspace string // workspace
-	config    string // config file
-	prefix    string // prefix
-	outdir    string // output folder
-	numRep    int    // number of replicates.
-	genStep   int    // number of generations for each step
-	genTime   int    // number of times
+	workspace  string // workspace
+	config     string // config file
+	prefix     string // prefix
+	outdir     string // output folder
+	numRep     int    // number of replicates.
+	genStep    int    // number of generations for each step
+	genTime    int    // number of times
+	sampleSize int    // sample size
+	maxL       int    // max length of correlation
 
 	outfile *os.File
 	encoder *json.Encoder
@@ -37,17 +40,10 @@ func init() {
 	flag.IntVar(&numRep, "n", 10, "number of replicates")
 	flag.IntVar(&genStep, "s", 1000, "number of generations for each step")
 	flag.IntVar(&genTime, "t", 1, "number of times")
+	flag.IntVar(&sampleSize, "sample", 1000, "sample size")
+	flag.IntVar(&maxL, "maxl", 100, "max length of correlation")
 
 	flag.Parse()
-
-	outFileName := prefix + "_res.json"
-	outFilePath := filepath.Join(workspace, outdir, outFileName)
-	outfile, err := os.Create(outFilePath)
-	if err != nil {
-		panic(err)
-	}
-
-	encoder = json.NewEncoder(outfile)
 }
 
 func main() {
@@ -55,12 +51,14 @@ func main() {
 	runtime.GOMAXPROCS(ncpu)
 	// parse parameter sets.
 	filePath := filepath.Join(workspace, config)
-	fmt.Printf("config file path: %s\n", filePath)
+	fmt.Printf("Config file path: %s\n", filePath)
 	parSets := parseParameterSets(filePath)
 	for i := 0; i < len(parSets); i++ {
 		fmt.Println(parSets[i])
 	}
 	popConfigCombinations := generatePopConfigs(parSets)
+
+	fmt.Printf("Total %d combinations.\n", len(popConfigCombinations))
 
 	jobChan := make(chan []pop.Config)
 	go func() {
@@ -80,9 +78,13 @@ func main() {
 					pops := createPops(comb)
 					numGen := 0
 					for i := 0; i < genTime; i++ {
+						t0 := time.Now()
 						simu.RunMoran(pops, comb, genStep)
+						fmt.Printf("Done simulation, using %v.\n", time.Now().Sub(t0))
 						numGen += genStep
+						t0 = time.Now()
 						calcResults := calculateResults(pops, numGen)
+						fmt.Printf("Done calculation, using %v.\n", time.Now().Sub(t0))
 						res.CalcResults = append(res.CalcResults, calcResults...)
 					}
 				}
@@ -99,13 +101,25 @@ func main() {
 		}
 	}()
 
+	results := []Results{}
 	for res := range resultChan {
-		if err := encoder.Encode(res); err != nil {
-			panic(err)
-		}
+		results = append(results, res)
 	}
 
-	outfile.Close()
+	outFileName := prefix + "_res.json"
+	outFilePath := filepath.Join(workspace, outdir, outFileName)
+	outfile, err := os.Create(outFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer outfile.Close()
+
+	encoder = json.NewEncoder(outfile)
+	if err := encoder.Encode(results); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Finished! Save results to %s\n", outFilePath)
 }
 
 type ParameterSet struct {
@@ -164,26 +178,26 @@ func calculateResults(pops []*pop.Pop, numGen int) []CalcRes {
 	calcResults := []CalcRes{}
 	for i := 0; i < len(pops); i++ {
 		p1 := pops[i]
-		ks, vd := pop.CalcKs(p1)
+		ks, vd := pop.CalcKs(p1, sampleSize)
 		res := CalcRes{
 			Index:  []int{i},
 			Ks:     ks,
 			Vd:     vd,
 			NumGen: numGen,
 		}
-		res.Cm, res.Ct, res.Cr, res.Cs = pop.CalcCov(p1)
+		res.Cm, res.Ct, res.Cr, res.Cs = pop.CalcCov(p1, sampleSize, maxL)
 		calcResults = append(calcResults, res)
 
 		for j := i + 1; j < len(pops); j++ {
 			p2 := pops[j]
-			ks, vd := pop.CrossKs(p1, p2)
+			ks, vd := pop.CrossKs(p1, p2, sampleSize)
 			res := CalcRes{
 				Index:  []int{i, j},
 				Ks:     ks,
 				Vd:     vd,
 				NumGen: numGen,
 			}
-			res.Cm, res.Ct, res.Cr, res.Cs = pop.CrossCov(p1, p2)
+			res.Cm, res.Ct, res.Cr, res.Cs = pop.CrossCov(p1, p2, sampleSize, maxL)
 			calcResults = append(calcResults, res)
 		}
 	}

@@ -3,24 +3,25 @@ package pop
 import (
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
+	"math/rand"
+	"runtime"
 )
 
-func CalcKs(p *Pop) (ks, vard float64) {
+func CalcKs(p *Pop, sampleSize int) (ks, vard float64) {
 	m := desc.NewMean()
 	v := desc.NewVarianceWithBiasCorrection()
-	for i := 0; i < p.Size; i++ {
-		for j := i + 1; j < p.Size; j++ {
-			m1 := desc.NewMean() // average distance between two sequences.
-			for k := 0; k < p.Length; k++ {
-				if p.Genomes[i].Sequence[k] == p.Genomes[j].Sequence[k] {
-					m1.Increment(0)
-				} else {
-					m1.Increment(1)
-				}
+	for s := 0; s < sampleSize; s++ {
+		i, j := rand.Intn(p.Size), rand.Intn(p.Size)
+		m1 := desc.NewMean() // average distance between two sequences.
+		for k := 0; k < p.Length; k++ {
+			if p.Genomes[i].Sequence[k] == p.Genomes[j].Sequence[k] {
+				m1.Increment(0)
+			} else {
+				m1.Increment(1)
 			}
-			m.Increment(m1.GetResult())
-			v.Increment(m1.GetResult())
 		}
+		m.Increment(m1.GetResult())
+		v.Increment(m1.GetResult())
 	}
 
 	ks = m.GetResult()
@@ -29,22 +30,21 @@ func CalcKs(p *Pop) (ks, vard float64) {
 	return
 }
 
-func CrossKs(p1, p2 *Pop) (ks, vard float64) {
+func CrossKs(p1, p2 *Pop, sampleSize int) (ks, vard float64) {
 	m := desc.NewMean()
 	v := desc.NewVarianceWithBiasCorrection()
-	for i := 0; i < p1.Size; i++ {
-		for j := 0; j < p2.Size; j++ {
-			m1 := desc.NewMean() // average distance between two sequences.
-			for k := 0; k < p1.Length; k++ {
-				if p1.Genomes[i].Sequence[k] == p2.Genomes[j].Sequence[k] {
-					m1.Increment(0)
-				} else {
-					m1.Increment(1)
-				}
+	for s := 0; s < sampleSize; s++ {
+		i, j := rand.Intn(p1.Size), rand.Intn(p2.Size)
+		m1 := desc.NewMean() // average distance between two sequences.
+		for k := 0; k < p1.Length; k++ {
+			if p1.Genomes[i].Sequence[k] == p2.Genomes[j].Sequence[k] {
+				m1.Increment(0)
+			} else {
+				m1.Increment(1)
 			}
-			m.Increment(m1.GetResult())
-			v.Increment(m1.GetResult())
 		}
+		m.Increment(m1.GetResult())
+		v.Increment(m1.GetResult())
 	}
 
 	ks = m.GetResult()
@@ -53,39 +53,45 @@ func CrossKs(p1, p2 *Pop) (ks, vard float64) {
 	return
 }
 
-func CalcCov(p *Pop) (cm, ct, cr, cs []float64) {
+func CalcCov(p *Pop, sampleSize, maxL int) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
-	for i := 0; i < p.Size; i++ {
-		for j := i + 1; j < p.Size; j++ {
-			profile := []float64{}
-			for k := 0; k < p.Length; k++ {
-				if p.Genomes[i].Sequence[k] != p.Genomes[j].Sequence[k] {
-					profile = append(profile, 1)
-				} else {
-					profile = append(profile, 0)
-				}
+	if maxL > p.Length {
+		maxL = p.Length
+	}
+	for s := 0; s < sampleSize; s++ {
+		i := rand.Intn(p.Size)
+		j := rand.Intn(p.Size)
+		profile := []float64{}
+		for k := 0; k < p.Length; k++ {
+			if p.Genomes[i].Sequence[k] != p.Genomes[j].Sequence[k] {
+				profile = append(profile, 1)
+			} else {
+				profile = append(profile, 0)
 			}
-			matrix = append(matrix, profile)
 		}
+		matrix = append(matrix, profile)
 	}
 
 	return calcCov(matrix, p.Length)
 }
 
-func CrossCov(p1, p2 *Pop) (cm, ct, cr, cs []float64) {
+func CrossCov(p1, p2 *Pop, sampleSize, maxL int) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
-	for i := 0; i < p1.Size; i++ {
-		for j := 0; j < p2.Size; j++ {
-			profile := []float64{}
-			for k := 0; k < p1.Length; k++ {
-				if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
-					profile = append(profile, 1)
-				} else {
-					profile = append(profile, 0)
-				}
+	if maxL > p1.Length {
+		maxL = p1.Length
+	}
+	for s := 0; s < sampleSize; s++ {
+		i := rand.Intn(p1.Size)
+		j := rand.Intn(p2.Size)
+		profile := []float64{}
+		for k := 0; k < p1.Length; k++ {
+			if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
+				profile = append(profile, 1)
+			} else {
+				profile = append(profile, 0)
 			}
-			matrix = append(matrix, profile)
 		}
+		matrix = append(matrix, profile)
 	}
 
 	return calcCov(matrix, p1.Length)
@@ -99,23 +105,58 @@ func calcCov(matrix [][]float64, maxL int) (cm, ct, cr, cs []float64) {
 }
 
 func calcCM(matrix [][]float64, maxL int) (mutCov, totCov []float64) {
-	cms := []float64{}
-	cts := []float64{}
+	cms := make([]float64, maxL)
+	cts := make([]float64, maxL)
 	biasCorrected := false
-	for l := 0; l < maxL; l++ {
-		mean := desc.NewMean()
-		cov := correlation.NewBivariateCovariance(biasCorrected)
-		for i := 0; i < len(matrix); i++ {
-			estimator := correlation.NewBivariateCovariance(biasCorrected)
-			for j := 0; j < len(matrix[i])-l; j++ {
-				x, y := matrix[i][j], matrix[i][j+l]
-				estimator.Increment(x, y)
-			}
-			mean.Increment(estimator.GetResult())
-			cov.Append(estimator)
+
+	ncpu := runtime.GOMAXPROCS(0)
+
+	jobs := make(chan int)
+	go func() {
+		defer close(jobs)
+		for i := 0; i < maxL; i++ {
+			jobs <- i
 		}
-		cms = append(cms, mean.GetResult())
-		cts = append(cts, cov.GetResult())
+	}()
+
+	type result struct {
+		l    int
+		mean *desc.Mean
+		cov  *correlation.BivariateCovariance
+	}
+
+	done := make(chan bool)
+	resChan := make(chan result)
+	for c := 0; c < ncpu; c++ {
+		go func() {
+			for l := range jobs {
+				mean := desc.NewMean()
+				cov := correlation.NewBivariateCovariance(biasCorrected)
+				for i := 0; i < len(matrix); i++ {
+					estimator := correlation.NewBivariateCovariance(biasCorrected)
+					for j := 0; j < len(matrix[i])-l; j++ {
+						x, y := matrix[i][j], matrix[i][j+l]
+						estimator.Increment(x, y)
+					}
+					mean.Increment(estimator.GetResult())
+					cov.Append(estimator)
+				}
+				resChan <- result{l: l, mean: mean, cov: cov}
+			}
+			done <- true
+		}()
+	}
+
+	go func() {
+		defer close(resChan)
+		for i := 0; i < ncpu; i++ {
+			<-done
+		}
+	}()
+
+	for res := range resChan {
+		cms[res.l] = res.mean.GetResult()
+		cts[res.l] = res.cov.GetResult()
 	}
 
 	mutCov = cms
@@ -125,19 +166,53 @@ func calcCM(matrix [][]float64, maxL int) (mutCov, totCov []float64) {
 }
 
 func calcCS(matrix [][]float64, maxL int) []float64 {
-	css := []float64{}
+	css := make([]float64, maxL)
 	biasCorrected := false
-	for l := 0; l < maxL; l++ {
-		mean := desc.NewMean()
-		for j := 0; j < len(matrix[0])-l; j++ {
-			estimator := correlation.NewBivariateCovariance(biasCorrected)
-			for i := 0; i < len(matrix); i++ {
-				x, y := matrix[i][j], matrix[i][j+l]
-				estimator.Increment(x, y)
-			}
-			mean.Increment(estimator.GetResult())
+
+	jobs := make(chan int)
+	go func() {
+		defer close(jobs)
+		for i := 0; i < maxL; i++ {
+			jobs <- i
 		}
-		css = append(css, mean.GetResult())
+	}()
+
+	type result struct {
+		l    int
+		mean *desc.Mean
+	}
+
+	resChan := make(chan result)
+	done := make(chan bool)
+
+	ncpu := runtime.GOMAXPROCS(0)
+	for i := 0; i < ncpu; i++ {
+		go func() {
+			for l := range jobs {
+				mean := desc.NewMean()
+				for j := 0; j < len(matrix[0])-l; j++ {
+					estimator := correlation.NewBivariateCovariance(biasCorrected)
+					for i := 0; i < len(matrix); i++ {
+						x, y := matrix[i][j], matrix[i][j+l]
+						estimator.Increment(x, y)
+					}
+					mean.Increment(estimator.GetResult())
+				}
+				resChan <- result{l: l, mean: mean}
+			}
+			done <- true
+		}()
+	}
+
+	go func() {
+		defer close(resChan)
+		for i := 0; i < ncpu; i++ {
+			<-done
+		}
+	}()
+
+	for res := range resChan {
+		css[res.l] = res.mean.GetResult()
 	}
 
 	return css
