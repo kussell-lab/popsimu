@@ -225,14 +225,9 @@ func generatePopConfigs(parSets []ParameterSet) [][]pop.Config {
 
 	combinations := [][]pop.Config{}
 	for i := 0; i < len(popCfgs); i++ {
-		set1 := popCfgs[i]
-		for j := i + 1; j < len(popCfgs); j++ {
-			set2 := popCfgs[j]
-			for _, cfg1 := range set1 {
-				for _, cfg2 := range set2 {
-					combinations = append(combinations, []pop.Config{cfg1, cfg2})
-				}
-			}
+		cfgs := popCfgs[i]
+		for _, cfg := range cfgs {
+			combinations = append(combinations, []pop.Config{cfg, cfg})
 		}
 	}
 
