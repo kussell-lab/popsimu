@@ -1,17 +1,25 @@
 package pop
 
 import (
+	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
 	"math/rand"
 	"runtime"
 )
 
-func CalcKs(p *Pop, sampleSize int) (ks, vard float64) {
+func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vard float64) {
 	m := desc.NewMean()
 	v := desc.NewVarianceWithBiasCorrection()
+
+	events := []*Event{&Event{Rate: float64(p.Size)}}
+	for i := 0; i < len(others); i++ {
+		events = append(events, &Event{Rate: float64(others[i].Size)})
+	}
+	r := rand.New(random.NewLockedSource(rand.NewSource(1)))
+
 	for s := 0; s < sampleSize; s++ {
-		i, j := rand.Intn(p.Size), rand.Intn(p.Size)
+		i, j := rand.Intn(int(Emit(events, r).Rate)), rand.Intn(int(Emit(events, r).Rate))
 		m1 := desc.NewMean() // average distance between two sequences.
 		for k := 0; k < p.Length; k++ {
 			if p.Genomes[i].Sequence[k] == p.Genomes[j].Sequence[k] {
@@ -30,7 +38,7 @@ func CalcKs(p *Pop, sampleSize int) (ks, vard float64) {
 	return
 }
 
-func CrossKs(p1, p2 *Pop, sampleSize int) (ks, vard float64) {
+func CrossKs(sampleSize int, p1, p2 *Pop) (ks, vard float64) {
 	m := desc.NewMean()
 	v := desc.NewVarianceWithBiasCorrection()
 	for s := 0; s < sampleSize; s++ {
@@ -53,14 +61,20 @@ func CrossKs(p1, p2 *Pop, sampleSize int) (ks, vard float64) {
 	return
 }
 
-func CalcCov(p *Pop, sampleSize, maxL int) (cm, ct, cr, cs []float64) {
+func CalcCov(sampleSize, maxL int, p *Pop, ps ...*Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
 	if maxL > p.Length {
 		maxL = p.Length
 	}
+
+	events := []*Event{&Event{Rate: float64(p.Size)}}
+	for i := 0; i < len(ps); i++ {
+		events = append(events, &Event{Rate: float64(ps[i].Size)})
+	}
+	r := rand.New(random.NewLockedSource(rand.NewSource(1)))
+
 	for s := 0; s < sampleSize; s++ {
-		i := rand.Intn(p.Size)
-		j := rand.Intn(p.Size)
+		i, j := rand.Intn(int(Emit(events, r).Rate)), rand.Intn(int(Emit(events, r).Rate))
 		profile := []float64{}
 		for k := 0; k < p.Length; k++ {
 			if p.Genomes[i].Sequence[k] != p.Genomes[j].Sequence[k] {
@@ -75,7 +89,7 @@ func CalcCov(p *Pop, sampleSize, maxL int) (cm, ct, cr, cs []float64) {
 	return calcCov(matrix, p.Length)
 }
 
-func CrossCov(p1, p2 *Pop, sampleSize, maxL int) (cm, ct, cr, cs []float64) {
+func CrossCov(sampleSize, maxL int, p1, p2 *Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
 	if maxL > p1.Length {
 		maxL = p1.Length

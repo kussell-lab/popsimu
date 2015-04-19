@@ -178,28 +178,47 @@ func calculateResults(pops []*pop.Pop, numGen int) []CalcRes {
 	calcResults := []CalcRes{}
 	for i := 0; i < len(pops); i++ {
 		p1 := pops[i]
-		ks, vd := pop.CalcKs(p1, sampleSize)
+		ks, vd := pop.CalcKs(sampleSize, p1)
 		res := CalcRes{
 			Index:  []int{i},
 			Ks:     ks,
 			Vd:     vd,
 			NumGen: numGen,
 		}
-		res.Cm, res.Ct, res.Cr, res.Cs = pop.CalcCov(p1, sampleSize, maxL)
+		res.Cm, res.Ct, res.Cr, res.Cs = pop.CalcCov(sampleSize, maxL, p1)
 		calcResults = append(calcResults, res)
 
 		for j := i + 1; j < len(pops); j++ {
 			p2 := pops[j]
-			ks, vd := pop.CrossKs(p1, p2, sampleSize)
+			ks, vd := pop.CrossKs(sampleSize, p1, p2)
 			res := CalcRes{
 				Index:  []int{i, j},
 				Ks:     ks,
 				Vd:     vd,
 				NumGen: numGen,
 			}
-			res.Cm, res.Ct, res.Cr, res.Cs = pop.CrossCov(p1, p2, sampleSize, maxL)
+			res.Cm, res.Ct, res.Cr, res.Cs = pop.CrossCov(sampleSize, maxL, p1, p2)
 			calcResults = append(calcResults, res)
 		}
+	}
+
+	if len(pops) > 1 {
+		indices := []int{}
+		for i := 0; i < len(pops); i++ {
+			indices = append(indices, i)
+		}
+
+		p1 := pops[0]
+		others := pops[1:]
+		ks, vd := pop.CalcKs(sampleSize, p1, others...)
+		res := CalcRes{
+			Index:  indices,
+			Ks:     ks,
+			Vd:     vd,
+			NumGen: numGen,
+		}
+		res.Cm, res.Ct, res.Cr, res.Cs = pop.CalcCov(sampleSize, maxL, p1, others...)
+		calcResults = append(calcResults, res)
 	}
 
 	return calcResults
