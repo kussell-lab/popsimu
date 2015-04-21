@@ -3,12 +3,11 @@ package pop
 import (
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/desc"
-	"time"
-	// "github.com/mingzhi/gsl-cgo/randist"
 	"math"
 	"math/rand"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func runOnePop(popSize, genomeLen int, mutRate, traRate float64, frag, numGen int) *Pop {
@@ -66,12 +65,12 @@ func TestSingleMoran(t *testing.T) {
 	// set number of CPUs for using
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	// population parameters
-	popSizeArr := []int{10}
+	popSizeArr := []int{100}
 	mutRates := []float64{0.01, 0.001}
-	traRates := []float64{0, 0.001, 0.01, 0.1}
+	traRates := []float64{0, 0.001, 0.01}
 	genomeLen := 100
 	frag := 10
-	replicates := 100
+	replicates := 10
 
 	for i, popSize := range popSizeArr {
 		mutRate := mutRates[i]
@@ -81,7 +80,7 @@ func TestSingleMoran(t *testing.T) {
 			vard := desc.NewVarianceWithBiasCorrection()
 			for j := 0; j < replicates; j++ {
 				p := runOnePop(popSize, genomeLen, mutRate, traRate, frag, numGen)
-				d, _ := CalcKs(p)
+				d, _ := CalcKs(10, p)
 				mean.Increment(d)
 				vard.Increment(d)
 			}
@@ -91,7 +90,7 @@ func TestSingleMoran(t *testing.T) {
 			nu := float64(popSize) * mutRate
 			gamma := float64(frag) * traRate
 			exp := nu / (1 + gamma + 4.0/3.0*nu)
-			if math.Abs(res-exp) > 2.0*ste {
+			if math.Abs(res-exp) > 3.0*ste {
 				t.Errorf("n = %d, u = %f, t = %f, Expected %f, but got %f, at standard error %f\n", popSize, mutRate, traRate, exp, res, ste)
 			}
 		}

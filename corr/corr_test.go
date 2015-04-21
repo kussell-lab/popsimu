@@ -87,7 +87,7 @@ func TestXCorr(t *testing.T) {
 }
 
 func BenchmarkFFTAuto(b *testing.B) {
-	data := make([]float64, 510)
+	data := make([]float64, 512)
 	for i := 0; i < len(data); i++ {
 		data[i] = rand.Float64()
 	}
@@ -100,7 +100,7 @@ func BenchmarkFFTAuto(b *testing.B) {
 }
 
 func BenchmarkFFTBF(b *testing.B) {
-	data := make([]float64, 510)
+	data := make([]float64, 512)
 	for i := 0; i < len(data); i++ {
 		data[i] = rand.Float64()
 	}
