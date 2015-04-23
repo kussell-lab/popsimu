@@ -37,10 +37,12 @@ func RunMoran(pops []*pop.Pop, popConfigs []pop.Config, numGen int) []*pop.Pop {
 	go func() {
 		defer close(eventChan)
 		for i := 0; i < numGen; i++ {
-			eventChan <- pop.Emit(moranEvents, r)
+			e := pop.Emit(moranEvents, r)
+			eventChan <- e
 			eventCount := poisson.Int()
 			for i := 0; i < eventCount; i++ {
-				eventChan <- pop.Emit(events, r)
+				e := pop.Emit(events, r)
+				eventChan <- e
 			}
 		}
 	}()

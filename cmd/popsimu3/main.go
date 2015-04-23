@@ -77,14 +77,27 @@ func main() {
 
 				replacement := true
 				pops := splitPop(p, replacement, p.Size, p.Size)
-				cfgs := []pop.Config{cfg, cfg}
+				fmt.Printf("%d\t%d\n", pops[0].Size, pops[1].Size)
+				cfgs := []pop.Config{}
+				for i := 0; i < len(pops); i++ {
+					cfg1 := pop.Config{}
+					cfg1.Size = pops[i].Size
+					cfg1.Length = cfg.Length
+					cfg1.Mutation.Rate = cfg.Mutation.Rate
+					cfg1.Transfer.In.Rate = cfg.Transfer.In.Rate
+					cfg1.Transfer.In.Fragment = cfg.Transfer.In.Fragment
+					cfg1.Alphabet = cfg.Alphabet
+					cfg1.Transfer.Out.Rate = cfg.Transfer.Out.Rate
+					cfg1.Transfer.Out.Fragment = cfg.Transfer.Out.Fragment
+					cfgs = append(cfgs, cfg1)
+				}
+
 				numGen1 := numGen
 				t0 := time.Now()
 				for i := 0; i < sampleStep; i++ {
 					simu.RunMoran(pops, cfgs, sampleTime)
 					numGen1 += sampleTime
 					calcResults := calculateResults(pops, numGen1)
-					fmt.Printf("%f, %f, %f\n", calcResults[0].Ks, calcResults[1].Ks, calcResults[3].Ks)
 					res.CalcResults = append(res.CalcResults, calcResults...)
 				}
 				t1 := time.Now()
@@ -225,7 +238,10 @@ func splitPop(p *pop.Pop, replacement bool, sizes ...int) []*pop.Pop {
 			p1.Circled = p.Circled
 			for i := 0; i < p1.Size; i++ {
 				index := rand.Intn(p.Size)
-				p1.Genomes = append(p1.Genomes, p.Genomes[index])
+				genome := pop.Genome{}
+				genome.Sequence = make(pop.Sequence, p1.Length)
+				copy(genome.Sequence, p.Genomes[index].Sequence)
+				p1.Genomes = append(p1.Genomes, genome)
 			}
 			pops = append(pops, p1)
 		}

@@ -14,7 +14,7 @@ type ByRate []*Event
 
 func (b ByRate) Len() int           { return len(b) }
 func (b ByRate) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b ByRate) Less(i, j int) bool { return b[i].Rate < b[j].Rate }
+func (b ByRate) Less(i, j int) bool { return b[i].Rate > b[j].Rate }
 
 // Randomly emit an event accourding to the event rate.
 func Emit(events []*Event, r Rand) *Event {
@@ -26,7 +26,7 @@ func Emit(events []*Event, r Rand) *Event {
 	randomValue := r.Float64()
 	sort.Sort(ByRate(events))
 	rate := 0.0
-	for i := len(events) - 1; i >= 0; i-- {
+	for i := 0; i < len(events); i++ {
 		rate += events[i].Rate / totalRate
 		if randomValue <= rate {
 			return events[i]
