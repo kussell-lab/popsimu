@@ -17,8 +17,8 @@ func RunMoran(pops []*pop.Pop, popConfigs []pop.Config, numGen int) []*pop.Pop {
 	moranEvents := generateMoranEvents(popConfigs, pops, src)
 
 	totalSize := 0
-	for i := 0; i < len(popConfigs); i++ {
-		totalSize += popConfigs[i].Size
+	for i := 0; i < len(pops); i++ {
+		totalSize += pops[i].Size
 	}
 
 	totalRate := 0.0
@@ -54,16 +54,17 @@ func generateEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (
 	r := rand.New(src)
 	for i := 0; i < len(popConfigs); i++ {
 		c := popConfigs[i]
+		p := pops[i]
 
 		mutateEvent := &pop.Event{
-			Rate: c.Mutation.Rate * float64(c.Size*c.Length),
+			Rate: c.Mutation.Rate * float64(p.Size*c.Length),
 			Ops:  pop.NewSimpleMutator(r),
 			Pop:  pops[i],
 		}
 		events = append(events, mutateEvent)
 
 		inTransferEvent := &pop.Event{
-			Rate: c.Transfer.In.Rate * float64(c.Size*c.Length),
+			Rate: c.Transfer.In.Rate * float64(p.Size*c.Length),
 			Ops:  pop.NewSimpleTransfer(c.Transfer.In.Fragment, r),
 			Pop:  pops[i],
 		}
@@ -72,14 +73,14 @@ func generateEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (
 		outTransferEvents := []*pop.Event{}
 		totalSize := 0
 		for j := 0; j < len(popConfigs); j++ {
-			cj := popConfigs[j]
+			pj := pops[j]
 			if i != j {
 				outE := &pop.Event{
-					Rate: c.Transfer.Out.Rate * float64(c.Size*c.Length*cj.Size),
+					Rate: c.Transfer.Out.Rate * float64(p.Size*c.Length*pj.Size),
 					Ops:  pop.NewOutTransfer(c.Transfer.Out.Fragment, pops[j], r),
 					Pop:  pops[i],
 				}
-				totalSize += cj.Size
+				totalSize += pj.Size
 				outTransferEvents = append(outTransferEvents, outE)
 			}
 		}
@@ -98,7 +99,7 @@ func generateMoranEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Sour
 	r := rand.New(src)
 	for i := 0; i < len(popConfigs); i++ {
 		event := &pop.Event{
-			Rate: float64(popConfigs[i].Size),
+			Rate: float64(pops[i].Size),
 			Ops:  pop.NewMoranSampler(r),
 			Pop:  pops[i],
 		}

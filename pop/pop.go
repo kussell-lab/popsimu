@@ -255,6 +255,11 @@ func (m *MoranSampler) Operate(p *Pop) {
 		// lock the genomes in order to avoid racing.
 		p.LockGenomes(a, b)
 		defer p.UnlockGenomes(a, b)
-		copy(p.Genomes[a].Sequence, p.Genomes[b].Sequence)
+		// copy(p.Genomes[a].Sequence, p.Genomes[b].Sequence)
+		for i := 0; i < len(p.Genomes[a].Sequence); i++ {
+			if p.Genomes[a].Sequence[i] != p.Genomes[b].Sequence[i] {
+				p.Genomes[a].Sequence[i] = p.Genomes[b].Sequence[i]
+			}
+		}
 	}
 }

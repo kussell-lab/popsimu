@@ -90,6 +90,9 @@ func TestSingleMoran(t *testing.T) {
 			nu := float64(popSize) * mutRate
 			gamma := float64(frag) * traRate
 			exp := nu / (1 + gamma + 4.0/3.0*nu)
+			if math.IsNaN(res) {
+				t.Error("Nan for result")
+			}
 			if math.Abs(res-exp) > 3.0*ste {
 				t.Errorf("n = %d, u = %f, t = %f, Expected %f, but got %f, at standard error %f\n", popSize, mutRate, traRate, exp, res, ste)
 			}
