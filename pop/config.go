@@ -11,7 +11,7 @@ type Config struct {
 	Size     int // population size
 	Length   int // length of genome
 	NumGen   int // number of generations.
-	Alphabet []byte
+	Alphabet string
 
 	Mutation struct {
 		Rate float64
@@ -33,7 +33,7 @@ func (c *Config) NewPop(popGenerator Operator) *Pop {
 	p := New()
 	p.Size = c.Size
 	p.Length = c.Length
-	p.Alphabet = c.Alphabet
+	p.Alphabet = []byte(c.Alphabet)
 	popGenerator.Operate(p)
 
 	return p
