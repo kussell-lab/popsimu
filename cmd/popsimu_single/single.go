@@ -57,7 +57,8 @@ func run(configChan chan pop.Config) []Result {
 }
 
 func batchSimu(configChan chan pop.Config, src rand.Source) (resChan chan popConfig) {
-	resChan = make(chan popConfig)
+	numWorker := runtime.GOMAXPROCS(0)
+	resChan = make(chan popConfig, numWorker)
 	done := make(chan bool)
 	simulator := func() {
 		defer send(done)
@@ -68,7 +69,6 @@ func batchSimu(configChan chan pop.Config, src rand.Source) (resChan chan popCon
 		}
 	}
 
-	numWorker := runtime.GOMAXPROCS(0)
 	for i := 0; i < numWorker; i++ {
 		go simulator()
 	}
@@ -112,10 +112,11 @@ type calcConfig struct {
 }
 
 func calc(simResChan chan popConfig, maxl int) chan calcConfig {
+	numWorker := runtime.GOMAXPROCS(0)
 	circular := true
 	done := make(chan bool)
 
-	calcChan := make(chan calcConfig)
+	calcChan := make(chan calcConfig, numWorker)
 	worker := func() {
 		defer send(done)
 		for res := range simResChan {
@@ -137,7 +138,6 @@ func calc(simResChan chan popConfig, maxl int) chan calcConfig {
 		}
 	}
 
-	numWorker := runtime.GOMAXPROCS(0)
 	for i := 0; i < numWorker; i++ {
 		go worker()
 	}

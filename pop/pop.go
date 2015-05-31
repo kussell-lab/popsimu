@@ -1,7 +1,6 @@
 package pop
 
 import (
-	"runtime"
 	"sync"
 )
 
@@ -42,19 +41,8 @@ func (p *Pop) UnlockGenomes(genomeIndex int, optionIndices ...int) {
 
 // Evolve a population by the channel of events.
 func Evolve(eventChan chan *Event) {
-	ncpu := runtime.GOMAXPROCS(0) * 100
-	done := make(chan bool)
-	for i := 0; i < ncpu; i++ {
-		go func() {
-			for e := range eventChan {
-				e.Ops.Operate(e.Pop)
-			}
-			done <- true
-		}()
-	}
-
-	for i := 0; i < ncpu; i++ {
-		<-done
+	for e := range eventChan {
+		e.Ops.Operate(e.Pop)
 	}
 }
 
