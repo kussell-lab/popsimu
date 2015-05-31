@@ -32,9 +32,11 @@ func runOnePop(popSize, genomeLen int, mutRate, traRate float64, frag, numGen in
 		Ops:  NewSimpleMutator(r),
 		Pop:  p,
 	}
+
+	constantFrag := NewConstantFrag(frag)
 	transferEvent := &Event{
 		Rate: traRate,
-		Ops:  NewSimpleTransfer(frag, r),
+		Ops:  NewSimpleTransfer(constantFrag, r),
 		Pop:  p,
 	}
 

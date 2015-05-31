@@ -194,8 +194,10 @@ func simu(c pop.Config, src rand.Source) *pop.Pop {
 		Rate: c.Mutation.Rate,
 	}
 
+	lambda := 1.0 / float64(c.Transfer.In.Fragment)
+	fragGenerator := pop.NewExpFrag(lambda, src)
 	transferEvent := &pop.Event{
-		Ops:  pop.NewSimpleTransfer(c.Transfer.In.Fragment, r),
+		Ops:  pop.NewSimpleTransfer(fragGenerator, r),
 		Pop:  p,
 		Rate: c.Transfer.In.Rate,
 	}
