@@ -48,21 +48,21 @@ type popConfig struct {
 }
 
 func run(configChan chan pop.Config) []Result {
-	seed := time.Now().UnixNano()
-	src := random.NewLockedSource(rand.NewSource(seed))
-	simResChan := batchSimu(configChan, src)
+	simResChan := batchSimu(configChan)
 	calcChan := calc(simResChan, maxl)
 	results := collect(calcChan)
 	return results
 }
 
-func batchSimu(configChan chan pop.Config, src rand.Source) (resChan chan popConfig) {
+func batchSimu(configChan chan pop.Config) (resChan chan popConfig) {
 	numWorker := runtime.GOMAXPROCS(0)
 	resChan = make(chan popConfig, numWorker)
 	done := make(chan bool)
 	simulator := func() {
 		defer send(done)
 		for c := range configChan {
+			seed := time.Now().UnixNano()
+			src := random.NewLockedSource(rand.NewSource(seed))
 			p := simu(c, src)
 			pc := popConfig{p: p, c: c}
 			resChan <- pc
