@@ -1,7 +1,6 @@
 package pop
 
 import (
-	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
 	"math/rand"
@@ -13,7 +12,7 @@ func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vd float64) {
 	for i := 0; i < len(others); i++ {
 		events = append(events, &Event{Rate: float64(others[i].Size), Pop: others[i]})
 	}
-	r := rand.New(random.NewLockedSource(rand.NewSource(1)))
+	r := rand.New(rand.NewSource(1))
 
 	matrix := [][]float64{}
 	for s := 0; s < sampleSize; s++ {
@@ -76,7 +75,7 @@ func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []flo
 	for i := 0; i < len(others); i++ {
 		events = append(events, &Event{Rate: float64(others[i].Size), Pop: others[i]})
 	}
-	r := rand.New(random.NewLockedSource(rand.NewSource(1)))
+	r := rand.New(rand.NewSource(1))
 
 	for s := 0; s < sampleSize; s++ {
 		p1 := Emit(events, r).Pop
