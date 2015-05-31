@@ -94,6 +94,11 @@ func (c *calculators) Increment(xs []float64) {
 	c.ct.Increment(xs)
 }
 
+func (c *calculators) Append(c2 *calculators) {
+	c.ks.Append(c2.ks)
+	c.ct.Append(c2.ct)
+}
+
 func newCalculators(maxl int, circular bool) *calculators {
 	c := calculators{}
 	c.ks = calculator.NewKs()
@@ -152,6 +157,7 @@ func collect(calcChan chan calcConfig) []Result {
 		if !found {
 			c = cc.c
 		}
+		c.Append(cc.c)
 		m[cc.cfg] = c
 	}
 
