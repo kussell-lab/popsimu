@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	maxl   int
 	ncpu   int
 	input  string
 	output string
@@ -27,7 +26,6 @@ func init() {
 	)
 	defaultNCPU := runtime.NumCPU()
 
-	flag.IntVar(&maxl, "maxl", defaultMaxl, "maxl")
 	flag.IntVar(&ncpu, "ncpu", defaultNCPU, "ncpu")
 	flag.Parse()
 	input = flag.Arg(0)
@@ -49,7 +47,7 @@ type popConfig struct {
 
 func run(configChan chan pop.Config) []Result {
 	simResChan := batchSimu(configChan)
-	calcChan := calc(simResChan, maxl)
+	calcChan := calc(simResChan)
 	results := collect(calcChan)
 	return results
 }
@@ -81,7 +79,7 @@ func batchSimu(configChan chan pop.Config) (resChan chan popConfig) {
 
 type calculators struct {
 	ks *calculator.Ks
-	ct *calculator.AutoCovFFT
+	ct *calculator.AutoCovFFTW
 }
 
 func (c *calculators) Increment(xs []float64) {
@@ -97,10 +95,10 @@ func (c *calculators) Append(c2 *calculators) {
 	c.ct.Append(c2.ct)
 }
 
-func newCalculators(maxl int, circular bool) *calculators {
+func newCalculators(n int, circular bool) *calculators {
 	c := calculators{}
 	c.ks = calculator.NewKs()
-	c.ct = calculator.NewAutoCovFFT(maxl, circular)
+	c.ct = calculator.NewAutoCovFFTW(n, circular)
 	return &c
 }
 
@@ -109,7 +107,7 @@ type calcConfig struct {
 	c   *calculators
 }
 
-func calc(simResChan chan popConfig, maxl int) chan calcConfig {
+func calc(simResChan chan popConfig) chan calcConfig {
 	numWorker := runtime.GOMAXPROCS(0)
 	circular := true
 	done := make(chan bool)
@@ -126,7 +124,7 @@ func calc(simResChan chan popConfig, maxl int) chan calcConfig {
 				sequences = append(sequences, g.Sequence)
 			}
 			ks := calculator.CalcKs(sequences)
-			ct := calculator.CalcCtFFT(sequences, maxl, circular)
+			ct := calculator.CalcCtFFTW(sequences, circular)
 
 			cc.c = &calculators{}
 			cc.c.ks = ks
