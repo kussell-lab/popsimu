@@ -59,8 +59,8 @@ func (s *SimpleTransfer) Operate(p *Pop) {
 	b := s.Rand.Intn(p.Size)
 	if a != b {
 		// lock the genomes in order to avoid racing.
-		p.LockGenomes(a, b)
-		defer p.UnlockGenomes(a, b)
+		// p.LockGenomes(a, b)
+		// defer p.UnlockGenomes(a, b)
 		// Randomly determine the start point of the transfer
 		start := s.Rand.Intn(p.Length)
 		end := start + s.Frag.Size()

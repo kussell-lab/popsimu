@@ -135,8 +135,8 @@ func (s *SimpleMutator) Operate(p *Pop) {
 	g := s.Rand.Intn(p.Size)
 	i := s.Rand.Intn(p.Length)
 	// lock the genomes in order to avoid racing.
-	p.LockGenomes(g)
-	defer p.UnlockGenomes(g)
+	// p.LockGenomes(g)
+	// defer p.UnlockGenomes(g)
 	// Randomly choose a letter and replace the existed one.
 	alphabet := []byte{}
 	for j := 0; j < len(p.Alphabet); j++ {
@@ -164,8 +164,8 @@ func (m *MoranSampler) Operate(p *Pop) {
 	b := m.Rand.Intn(p.Size)
 	if a != b {
 		// lock the genomes in order to avoid racing.
-		p.LockGenomes(a, b)
-		defer p.UnlockGenomes(a, b)
+		// p.LockGenomes(a, b)
+		// defer p.UnlockGenomes(a, b)
 		// copy(p.Genomes[a].Sequence, p.Genomes[b].Sequence)
 		for i := 0; i < len(p.Genomes[a].Sequence); i++ {
 			if p.Genomes[a].Sequence[i] != p.Genomes[b].Sequence[i] {
