@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"github.com/mingzhi/gomath/random"
+	"github.com/mingzhi/gomath/stat/correlation"
 	. "github.com/mingzhi/popsimu/cmd"
 	"github.com/mingzhi/popsimu/pop"
 	"github.com/mingzhi/seqcor/calculator"
@@ -36,7 +37,24 @@ func init() {
 
 func main() {
 	configChan := read(input)
-	results := run(configChan)
+	configMap := make(map[int][]pop.Config)
+	for cfg := range configChan {
+		configMap[cfg.Length] = append(configMap[cfg.Length], cfg)
+	}
+
+	var results []Result
+	for seqLen, cfgs := range configMap {
+		cfgChan := make(chan pop.Config)
+		go func() {
+			defer close(cfgChan)
+			for _, cfg := range cfgs {
+				cfgChan <- cfg
+			}
+		}()
+		res := run(cfgChan, seqLen)
+		results = append(results, res...)
+	}
+
 	write(output, results)
 }
 
@@ -45,9 +63,9 @@ type popConfig struct {
 	c pop.Config
 }
 
-func run(configChan chan pop.Config) []Result {
+func run(configChan chan pop.Config, seqLen int) []Result {
 	simResChan := batchSimu(configChan)
-	calcChan := calc(simResChan)
+	calcChan := calc(simResChan, seqLen)
 	results := collect(calcChan)
 	return results
 }
@@ -86,7 +104,6 @@ func (c *calculators) Increment(xs []float64) {
 	for i := 0; i < len(xs); i++ {
 		c.ks.Increment(xs[i])
 	}
-
 	c.ct.Increment(xs)
 }
 
@@ -95,21 +112,15 @@ func (c *calculators) Append(c2 *calculators) {
 	c.ct.Append(c2.ct)
 }
 
-func newCalculators(n int, circular bool) *calculators {
-	c := calculators{}
-	c.ks = calculator.NewKs()
-	c.ct = calculator.NewAutoCovFFTW(n, circular)
-	return &c
-}
-
 type calcConfig struct {
 	cfg pop.Config
 	c   *calculators
 }
 
-func calc(simResChan chan popConfig) chan calcConfig {
+func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 	numWorker := runtime.GOMAXPROCS(0)
 	circular := true
+	dft := correlation.NewFFTW(seqLen, circular)
 	done := make(chan bool)
 
 	calcChan := make(chan calcConfig, numWorker)
@@ -124,7 +135,7 @@ func calc(simResChan chan popConfig) chan calcConfig {
 				sequences = append(sequences, g.Sequence)
 			}
 			ks := calculator.CalcKs(sequences)
-			ct := calculator.CalcCtFFTW(sequences, circular)
+			ct := calculator.CalcCtFFTW(sequences, &dft)
 
 			cc.c = &calculators{}
 			cc.c.ks = ks
@@ -139,6 +150,7 @@ func calc(simResChan chan popConfig) chan calcConfig {
 	}
 
 	go func() {
+		defer dft.Close()
 		defer close(calcChan)
 		wait(done, numWorker)
 	}()
