@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"github.com/mingzhi/fftw"
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	. "github.com/mingzhi/popsimu/cmd"
@@ -121,8 +120,6 @@ type calcConfig struct {
 func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 	numWorker := runtime.GOMAXPROCS(0)
 	circular := true
-	fftw.InitThreads()
-	fftw.PlanWithNThreads(runtime.NumCPU())
 	dft := correlation.NewFFTW(seqLen, circular)
 	done := make(chan bool)
 
@@ -154,7 +151,6 @@ func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 
 	go func() {
 		defer dft.Close()
-		defer fftw.CleanupThreads()
 		defer close(calcChan)
 		wait(done, numWorker)
 	}()
