@@ -5,6 +5,7 @@ import (
 	"flag"
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
+	"github.com/mingzhi/gomath/stat/desc"
 	. "github.com/mingzhi/popsimu/cmd"
 	"github.com/mingzhi/popsimu/pop"
 	"github.com/mingzhi/seqcor/calculator"
@@ -160,13 +161,19 @@ func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 
 func collect(calcChan chan calcConfig) []Result {
 	m := make(map[pop.Config]*calculators)
+	varm := make(map[pop.Config]*desc.Variance)
 	for cc := range calcChan {
 		c, found := m[cc.cfg]
+		v, _ := varm[cc.cfg]
 		if !found {
 			c = cc.c
+			v = desc.NewVariance()
 		}
 		c.Append(cc.c)
+		v.Increment(c.ks.Mean.GetResult())
+
 		m[cc.cfg] = c
+		varm[cc.cfg] = v
 	}
 
 	var results []Result
@@ -174,6 +181,7 @@ func collect(calcChan chan calcConfig) []Result {
 		res := Result{}
 		res.Config = cfg
 		res.C = createCovResult(c)
+		res.C.KsVar = varm[cfg].GetResult()
 		results = append(results, res)
 	}
 
@@ -293,7 +301,6 @@ func readConfigs(r io.Reader) (configs []pop.Config) {
 func createCovResult(c *calculators) CovResult {
 	var cr CovResult
 	cr.Ks = c.ks.Mean.GetResult()
-	cr.KsVar = c.ks.Var.GetResult()
 	for i := 0; i < c.ct.N; i++ {
 		cr.Ct = append(cr.Ct, c.ct.GetResult(i))
 	}
