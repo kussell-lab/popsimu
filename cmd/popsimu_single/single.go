@@ -293,6 +293,7 @@ func readConfigs(r io.Reader) (configs []pop.Config) {
 func createCovResult(c *calculators) CovResult {
 	var cr CovResult
 	cr.Ks = c.ks.Mean.GetResult()
+	cr.KsVar = c.ks.Var.GetResult()
 	for i := 0; i < c.ct.N; i++ {
 		cr.Ct = append(cr.Ct, c.ct.GetResult(i))
 	}
