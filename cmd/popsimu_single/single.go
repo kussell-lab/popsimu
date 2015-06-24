@@ -133,7 +133,7 @@ func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 
 			sequences := [][]byte{}
 			for _, g := range res.p.Genomes {
-				sequences = append(sequences, g.Sequence)
+				sequences = append(sequences, g.Seq())
 			}
 			ks := calculator.CalcKs(sequences)
 			ct := calculator.CalcCtFFTW(sequences, &dft)
@@ -189,9 +189,10 @@ func collect(calcChan chan calcConfig) []Result {
 }
 
 func newPop(c pop.Config, src rand.Source) *pop.Pop {
+	p := pop.New()
 	r := rand.New(src)
-	popGenerator := pop.NewRandomPopGenerator(r)
-	p := c.NewPop(popGenerator)
+	g := pop.NewRandomPopGenerator(r, c.Size, c.Length, []byte(c.Alphabet))
+	g.Operate(p)
 	return p
 }
 
@@ -236,7 +237,7 @@ func simu(c pop.Config) *pop.Pop {
 	}
 
 	mutationEvent := &pop.Event{
-		Ops:  pop.NewSimpleMutator(r),
+		Ops:  pop.NewSimpleMutator(r, []byte(c.Alphabet)),
 		Pop:  p,
 		Rate: c.Mutation.Rate * float64(c.Length),
 	}
