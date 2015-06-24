@@ -27,14 +27,15 @@ func main() {
 }
 
 type ParameterSet struct {
-	Sizes            []int
-	Lengths          []int
-	MutationRates    []float64
-	TransferInRates  []float64
-	TransferInFrags  []int
-	TransferOutRates []float64
-	TransferOutFrags []int
-	Alphabet         string
+	Sizes                   []int
+	Lengths                 []int
+	MutationRates           []float64
+	TransferInRates         []float64
+	TransferInFrags         []int
+	TransferOutRates        []float64
+	TransferOutFrags        []int
+	Alphabet                string
+	BeneficialMutationRates []float64
 }
 
 func (p ParameterSet) String() string {
@@ -47,6 +48,7 @@ func (p ParameterSet) String() string {
 	fmt.Fprintf(&b, "Transfer out rates: %v\n", p.TransferOutRates)
 	fmt.Fprintf(&b, "Transfer out frags: %v\n", p.TransferOutFrags)
 	fmt.Fprintf(&b, "Alphabet: %v\n", p.Alphabet)
+	fmt.Fprintf(&b, "Beneficial mutation rates: %v\n", p.BeneficialMutationRates)
 
 	return b.String()
 }
@@ -76,18 +78,21 @@ func create(par ParameterSet) []pop.Config {
 					for _, transferInFrag := range par.TransferInFrags {
 						for _, transferOutRate := range par.TransferOutRates {
 							for _, transferOutFrag := range par.TransferOutFrags {
-								for i := 0; i < rep; i++ {
-									cfg := pop.Config{}
-									cfg.Size = size
-									cfg.Length = length
-									cfg.Mutation.Rate = mutation
-									cfg.Transfer.In.Rate = transferInRate
-									cfg.Transfer.In.Fragment = transferInFrag
-									cfg.Transfer.Out.Rate = transferOutRate
-									cfg.Transfer.Out.Fragment = transferOutFrag
-									cfg.Alphabet = par.Alphabet
-									cfg.NumGen = cfg.Size * cfg.Size * 10
-									cfgs = append(cfgs, cfg)
+								for _, beneficalMutationRate := range par.BeneficialMutationRates {
+									for i := 0; i < rep; i++ {
+										cfg := pop.Config{}
+										cfg.Size = size
+										cfg.Length = length
+										cfg.Mutation.Rate = mutation
+										cfg.Transfer.In.Rate = transferInRate
+										cfg.Transfer.In.Fragment = transferInFrag
+										cfg.Transfer.Out.Rate = transferOutRate
+										cfg.Transfer.Out.Fragment = transferOutFrag
+										cfg.Alphabet = par.Alphabet
+										cfg.Mutation.Beneficial.Rate = beneficalMutationRate
+										cfg.NumGen = cfg.Size * cfg.Size * 10
+										cfgs = append(cfgs, cfg)
+									}
 								}
 							}
 						}

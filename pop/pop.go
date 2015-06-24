@@ -69,23 +69,18 @@ func (r *RandomPopGenerator) Operate(p *Pop) {
 
 // SimplePopGenerator generate a population with the same ancestral sequence.
 type SimplePopGenerator struct {
-	Ancestor ByteSequence
+	Ancestor Genome
 	Size     int // size of population
 }
 
-func NewSimplePopGenerator(ancestor ByteSequence, size int) *SimplePopGenerator {
+func NewSimplePopGenerator(ancestor Genome, size int) *SimplePopGenerator {
 	return &SimplePopGenerator{Ancestor: ancestor, Size: size}
 }
 
 func (s *SimplePopGenerator) Operate(p *Pop) {
-	// Make the genomes and copy the ancestor to each sequence.
-	genomes := make([]NeutralGenome, s.Size)
 	for i := 0; i < s.Size; i++ {
-		genomes[i].Sequence = make(ByteSequence, len(s.Ancestor))
-		copy(genomes[i].Sequence, s.Ancestor)
-	}
-
-	for i := 0; i < len(genomes); i++ {
-		p.Genomes = append(p.Genomes, &genomes[i])
+		var g Genome
+		g = s.Ancestor.Copy()
+		p.Genomes = append(p.Genomes, g)
 	}
 }

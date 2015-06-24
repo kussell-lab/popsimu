@@ -14,6 +14,9 @@ type Config struct {
 	Alphabet string
 
 	Mutation struct {
+		Beneficial struct {
+			Rate float64
+		}
 		Rate float64
 	}
 

@@ -242,6 +242,12 @@ func simu(c pop.Config) *pop.Pop {
 		Rate: c.Mutation.Rate * float64(c.Length),
 	}
 
+	beneficialMutationEvent := &pop.Event{
+		Ops:  pop.NewBeneficialMutator(r),
+		Pop:  p,
+		Rate: c.Mutation.Beneficial.Rate * float64(c.Length),
+	}
+
 	lambda := 1.0 / float64(c.Transfer.In.Fragment)
 	fragGenerator := pop.NewExpFrag(lambda, src)
 	transferEvent := &pop.Event{
@@ -250,7 +256,7 @@ func simu(c pop.Config) *pop.Pop {
 		Rate: c.Transfer.In.Rate * float64(c.Length),
 	}
 
-	otherEvents := []*pop.Event{mutationEvent, transferEvent}
+	otherEvents := []*pop.Event{mutationEvent, transferEvent, beneficialMutationEvent}
 	eventChan := generateEvents(moranEvent, otherEvents, c.NumGen)
 
 	pop.Evolve(eventChan)

@@ -28,3 +28,20 @@ func (s *SimpleMutator) Operate(p *Pop) {
 	}
 	p.Genomes[g].Seq()[pos] = alphabet[s.Rand.Intn(len(alphabet))]
 }
+
+type BeneficialMutator struct {
+	Rand Rand
+}
+
+func (m *BeneficialMutator) Operate(p *Pop) {
+	// randomly choose a genome.
+	g := m.Rand.Intn(p.Size())
+	var ag *NeutralGenome
+	// increase its number of beneficial mutation
+	ag = p.Genomes[g].(*NeutralGenome)
+	ag.fitness++
+}
+
+func NewBeneficialMutator(r Rand) *BeneficialMutator {
+	return &BeneficialMutator{Rand: r}
+}

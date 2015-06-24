@@ -20,7 +20,7 @@ func (m *MoranSampler) Operate(p *Pop) {
 	for i := 0; i < p.Size(); i++ {
 		var f float64
 		f = p.Genomes[i].Fitness()
-		weights = append(weights, f)
+		weights = append(weights, f+1.0/float64(p.Size()))
 	}
 	b := RouletteWheelSelect(weights, m.Rand)
 
