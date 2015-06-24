@@ -29,16 +29,6 @@ type Config struct {
 	}
 }
 
-func (c *Config) NewPop(popGenerator Operator) *Pop {
-	p := New()
-	p.Size = c.Size
-	p.Length = c.Length
-	p.Alphabet = []byte(c.Alphabet)
-	popGenerator.Operate(p)
-
-	return p
-}
-
 func (c *Config) String() string {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "Population size: %d\n", c.Size)

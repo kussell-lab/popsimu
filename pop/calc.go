@@ -8,9 +8,9 @@ import (
 )
 
 func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vd float64) {
-	events := []*Event{&Event{Rate: float64(p.Size), Pop: p}}
+	events := []*Event{&Event{Rate: float64(p.Size()), Pop: p}}
 	for i := 0; i < len(others); i++ {
-		events = append(events, &Event{Rate: float64(others[i].Size), Pop: others[i]})
+		events = append(events, &Event{Rate: float64(others[i].Size()), Pop: others[i]})
 	}
 	r := rand.New(rand.NewSource(1))
 
@@ -18,10 +18,10 @@ func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vd float64) {
 	for s := 0; s < sampleSize; s++ {
 		p1 := Emit(events, r).Pop
 		p2 := Emit(events, r).Pop
-		i, j := rand.Intn(p1.Size), rand.Intn(p2.Size)
-		x := make([]float64, p.Length)
-		for k := 0; k < p.Length; k++ {
-			if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
+		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
+		x := make([]float64, p.Length())
+		for k := 0; k < p.Length(); k++ {
+			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
 				x[k] = 1
 			}
 		}
@@ -51,10 +51,10 @@ func calcKs(matrix [][]float64) (ks, vd float64) {
 func CrossKs(sampleSize int, p1, p2 *Pop) (ks, vd float64) {
 	matrix := [][]float64{}
 	for s := 0; s < sampleSize; s++ {
-		i, j := rand.Intn(p1.Size), rand.Intn(p2.Size)
-		x := make([]float64, p1.Length)
-		for k := 0; k < p1.Length; k++ {
-			if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
+		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
+		x := make([]float64, p1.Length())
+		for k := 0; k < p1.Length(); k++ {
+			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
 				x[k] = 1
 			}
 		}
@@ -67,23 +67,23 @@ func CrossKs(sampleSize int, p1, p2 *Pop) (ks, vd float64) {
 
 func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
-	if maxL > p.Length {
-		maxL = p.Length
+	if maxL > p.Length() {
+		maxL = p.Length()
 	}
 
-	events := []*Event{&Event{Rate: float64(p.Size), Pop: p}}
+	events := []*Event{&Event{Rate: float64(p.Size()), Pop: p}}
 	for i := 0; i < len(others); i++ {
-		events = append(events, &Event{Rate: float64(others[i].Size), Pop: others[i]})
+		events = append(events, &Event{Rate: float64(others[i].Size()), Pop: others[i]})
 	}
 	r := rand.New(rand.NewSource(1))
 
 	for s := 0; s < sampleSize; s++ {
 		p1 := Emit(events, r).Pop
 		p2 := Emit(events, r).Pop
-		i, j := rand.Intn(p1.Size), rand.Intn(p2.Size)
+		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
 		profile := []float64{}
-		for k := 0; k < p.Length; k++ {
-			if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
+		for k := 0; k < p.Length(); k++ {
+			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
 				profile = append(profile, 1)
 			} else {
 				profile = append(profile, 0)
@@ -93,20 +93,20 @@ func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []flo
 	}
 
 	circular := true
-	return calcCov(matrix, p.Length, circular)
+	return calcCov(matrix, p.Length(), circular)
 }
 
 func CrossCov(sampleSize, maxL int, p1, p2 *Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
-	if maxL > p1.Length {
-		maxL = p1.Length
+	if maxL > p1.Length() {
+		maxL = p1.Length()
 	}
 	for s := 0; s < sampleSize; s++ {
-		i := rand.Intn(p1.Size)
-		j := rand.Intn(p2.Size)
+		i := rand.Intn(p1.Size())
+		j := rand.Intn(p2.Size())
 		profile := []float64{}
-		for k := 0; k < p1.Length; k++ {
-			if p1.Genomes[i].Sequence[k] != p2.Genomes[j].Sequence[k] {
+		for k := 0; k < p1.Length(); k++ {
+			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
 				profile = append(profile, 1)
 			} else {
 				profile = append(profile, 0)
@@ -117,7 +117,7 @@ func CrossCov(sampleSize, maxL int, p1, p2 *Pop) (cm, ct, cr, cs []float64) {
 
 	circular := true
 
-	return calcCov(matrix, p1.Length, circular)
+	return calcCov(matrix, p1.Length(), circular)
 }
 
 func calcCov(matrix [][]float64, maxL int, circular bool) (cm, ct, cr, cs []float64) {

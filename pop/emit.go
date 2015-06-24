@@ -1,9 +1,5 @@
 package pop
 
-import (
-	"sort"
-)
-
 type Event struct {
 	Ops  Operator
 	Rate float64
@@ -18,20 +14,10 @@ func (b ByRate) Less(i, j int) bool { return b[i].Rate > b[j].Rate }
 
 // Randomly emit an event accourding to the event rate.
 func Emit(events []*Event, r Rand) *Event {
-	totalRate := 0.0
+	var weights []float64
 	for _, e := range events {
-		totalRate += e.Rate
+		weights = append(weights, e.Rate)
 	}
-
-	randomValue := r.Float64()
-	sort.Sort(ByRate(events))
-	rate := 0.0
-	for i := 0; i < len(events); i++ {
-		rate += events[i].Rate / totalRate
-		if randomValue <= rate {
-			return events[i]
-		}
-	}
-
-	return nil
+	index := RouletteWheelSelect(weights, r)
+	return events[index]
 }

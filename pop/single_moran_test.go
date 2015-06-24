@@ -11,16 +11,17 @@ import (
 )
 
 func runOnePop(popSize, genomeLen int, mutRate, traRate float64, frag, numGen int) *Pop {
-	p := New()
-	p.Size = popSize
-	p.Length = genomeLen
-	p.Alphabet = []byte{1, 2, 3, 4}
+	var p *Pop
+	var alphabet []byte
+
+	p = New()
+	alphabet = []byte{1, 2, 3, 4}
 
 	// randome number source.
 	src := random.NewLockedSource(rand.NewSource(time.Now().UnixNano()))
 	r := rand.New(src)
 
-	NewRandomPopGenerator(r).Operate(p)
+	NewRandomPopGenerator(r, popSize, genomeLen, alphabet).Operate(p)
 
 	moranEvent := &Event{
 		Ops: NewMoranSampler(r),
@@ -29,7 +30,7 @@ func runOnePop(popSize, genomeLen int, mutRate, traRate float64, frag, numGen in
 
 	mutationEvent := &Event{
 		Rate: mutRate,
-		Ops:  NewSimpleMutator(r),
+		Ops:  NewSimpleMutator(r, alphabet),
 		Pop:  p,
 	}
 
