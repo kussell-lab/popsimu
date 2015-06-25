@@ -16,6 +16,7 @@ type Config struct {
 	Mutation struct {
 		Beneficial struct {
 			Rate float64
+			S    float64
 		}
 		Rate float64
 	}

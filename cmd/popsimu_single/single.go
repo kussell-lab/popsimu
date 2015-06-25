@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
@@ -243,7 +244,7 @@ func simu(c pop.Config) *pop.Pop {
 	}
 
 	beneficialMutationEvent := &pop.Event{
-		Ops:  pop.NewBeneficialMutator(r),
+		Ops:  pop.NewBeneficialMutator(c.Mutation.Beneficial.S, r),
 		Pop:  p,
 		Rate: c.Mutation.Beneficial.Rate * float64(c.Length),
 	}
@@ -260,8 +261,38 @@ func simu(c pop.Config) *pop.Pop {
 	eventChan := generateEvents(moranEvent, otherEvents, c.NumGen)
 
 	pop.Evolve(eventChan)
-
+	coalesentTime(moranEvent, c.NumGen)
 	return p
+}
+
+func coalesentTime(e *pop.Event, numGen int) {
+	var moranEvent *pop.MoranSampler
+	moranEvent = e.Ops.(*pop.MoranSampler)
+
+	m := desc.NewMean()
+	for i := 0; i < len(moranEvent.Lineages); i++ {
+		for j := i + 1; j < len(moranEvent.Lineages); j++ {
+			a := moranEvent.Lineages[i]
+			b := moranEvent.Lineages[j]
+			t := backTravel(a, b)
+			m.Increment(float64(numGen - t + 1))
+		}
+	}
+	fmt.Println(m.GetResult())
+}
+
+func backTravel(a, b *pop.Lineage) int {
+	t1 := a.Time
+	t2 := b.Time
+	if t1 == t2 {
+		return t1
+	} else {
+		if t1 > t2 {
+			return backTravel(a.Parent, b)
+		} else {
+			return backTravel(a, b.Parent)
+		}
+	}
 }
 
 func send(done chan bool) {

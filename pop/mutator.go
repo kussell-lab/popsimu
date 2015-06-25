@@ -30,6 +30,7 @@ func (s *SimpleMutator) Operate(p *Pop) {
 }
 
 type BeneficialMutator struct {
+	S    float64
 	Rand Rand
 }
 
@@ -39,9 +40,9 @@ func (m *BeneficialMutator) Operate(p *Pop) {
 	var ag *NeutralGenome
 	// increase its number of beneficial mutation
 	ag = p.Genomes[g].(*NeutralGenome)
-	ag.fitness++
+	ag.fitness += m.S
 }
 
-func NewBeneficialMutator(r Rand) *BeneficialMutator {
-	return &BeneficialMutator{Rand: r}
+func NewBeneficialMutator(s float64, r Rand) *BeneficialMutator {
+	return &BeneficialMutator{Rand: r, S: s}
 }
