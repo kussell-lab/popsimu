@@ -1,86 +1,99 @@
 package pop
 
 import (
-	"github.com/mingzhi/gomath/stat/desc/meanvar"
+	"fmt"
+	"math/rand"
 	"runtime"
 	"sort"
+	"time"
 )
 
-func CalcT2(p *Pop) (mv *meanvar.MeanVar) {
-	jobs := make(chan Lineages)
-	go func() {
-		for i := 0; i < len(p.Lineages); i++ {
-			for j := i + 1; j < len(p.Lineages); j++ {
-				lineages := Lineages{p.Lineages[i], p.Lineages[j]}
-				jobs <- lineages
-			}
-		}
-	}()
+type sampleT func(p *Pop)
 
-	return calcCoalTime(jobs, p)
+func CalcT2(p *Pop, sampleSize int) []float64 {
+	t0 := time.Now()
+	lineageChan := sampleLineages(p, sampleSize, 2)
+	res := calcCoalTimes(lineageChan, p)
+	t1 := time.Now()
+	fmt.Printf("Calculate T2 using %v second.\n", t1.Sub(t0).Seconds())
+	return res
 }
 
-func CalcT3(p *Pop) (mv *meanvar.MeanVar) {
+func CalcT3(p *Pop, sampleSize int) []float64 {
+	t0 := time.Now()
+	lineageChan := sampleLineages(p, sampleSize, 3)
+	res := calcCoalTimes(lineageChan, p)
+	t1 := time.Now()
+	fmt.Printf("Calculate T3 using %v second.\n", t1.Sub(t0).Seconds())
+	return res
+}
+
+func CalcT4(p *Pop, sampleSize int) []float64 {
+	t0 := time.Now()
+	lineageChan := sampleLineages(p, sampleSize, 4)
+	res := calcCoalTimes(lineageChan, p)
+	t1 := time.Now()
+	fmt.Printf("Calculate T4 using %v second.\n", t1.Sub(t0).Seconds())
+	return res
+}
+
+func randomSample(list Lineages, n int) Lineages {
+	m := make(map[int]bool)
+	set := Lineages{}
+	for i := len(list) - n; i < len(list); i++ {
+		pos := rand.Intn(i + 1)
+		if m[pos] {
+			set = append(set, list[i])
+			m[i] = true
+		} else {
+			set = append(set, list[pos])
+			m[pos] = true
+		}
+	}
+	return set
+}
+
+func sampleLineages(p *Pop, sampleSize, lineageSize int) chan Lineages {
 	jobs := make(chan Lineages)
 	go func() {
 		defer close(jobs)
-		for i := 0; i < len(p.Lineages); i++ {
-			for j := i + 1; j < len(p.Lineages); j++ {
-				for k := j + 1; k < len(p.Lineages); k++ {
-					lineages := Lineages{p.Lineages[i], p.Lineages[j], p.Lineages[k]}
-					jobs <- lineages
-				}
-			}
+		for i := 0; i < sampleSize; i++ {
+			ls := randomSample(p.Lineages, lineageSize)
+			jobs <- ls
 		}
 	}()
-
-	return calcCoalTime(jobs, p)
+	return jobs
 }
 
-func CalcT4(p *Pop) (mv *meanvar.MeanVar) {
-	jobs := make(chan Lineages)
-	go func() {
-		defer close(jobs)
-		for i := 0; i < len(p.Lineages); i++ {
-			for j := i + 1; j < len(p.Lineages); j++ {
-				for k := j + 1; k < len(p.Lineages); k++ {
-					for h := k + 1; h < len(p.Lineages); h++ {
-						lineages := Lineages{p.Lineages[i], p.Lineages[j], p.Lineages[k], p.Lineages[h]}
-						jobs <- lineages
-					}
-				}
-			}
-		}
-	}()
-
-	return calcCoalTime(jobs, p)
-}
-
-func calcCoalTime(c chan Lineages, p *Pop) (mv *meanvar.MeanVar) {
+func calcCoalTimes(c chan Lineages, p *Pop) []float64 {
 	numWorker := runtime.GOMAXPROCS(0)
-	results := make(chan *meanvar.MeanVar, numWorker)
+	results := make(chan float64, numWorker)
+	done := make(chan bool)
 	for i := 0; i < numWorker; i++ {
 		go func() {
-			mv := meanvar.New()
 			for lineages := range c {
+				var v float64
 				t := findMostRecentCoalescentTime(lineages)
-				v := float64(p.NumGeneration - t + 1)
-				mv.Increment(v)
+				v = float64(p.NumGeneration - t + 1)
+				results <- v
 			}
-			results <- mv
+			done <- true
 		}()
 	}
 
-	for i := 0; i < numWorker; i++ {
-		m := <-results
-		if i == 0 {
-			mv = m
-		} else {
-			mv.Append(m)
+	go func() {
+		defer close(results)
+		for i := 0; i < numWorker; i++ {
+			<-done
 		}
+	}()
+
+	coalTimes := []float64{}
+	for v := range results {
+		coalTimes = append(coalTimes, v)
 	}
 
-	return
+	return coalTimes
 }
 
 func findMostRecentCoalescentTime(lineages Lineages) int {

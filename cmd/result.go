@@ -7,7 +7,7 @@ import (
 type Result struct {
 	Config     pop.Config
 	C          CovResult
-	T2, T3, T4 float64
+	T2, T3, T4 []float64
 }
 
 type CovResult struct {

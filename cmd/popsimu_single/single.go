@@ -6,7 +6,6 @@ import (
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
-	"github.com/mingzhi/gomath/stat/desc/meanvar"
 	. "github.com/mingzhi/popsimu/cmd"
 	"github.com/mingzhi/popsimu/pop"
 	"github.com/mingzhi/seqcor/calculator"
@@ -18,9 +17,10 @@ import (
 )
 
 var (
-	ncpu   int
-	input  string
-	output string
+	ncpu       int
+	sampleSize int
+	input      string
+	output     string
 )
 
 func init() {
@@ -30,6 +30,7 @@ func init() {
 	defaultNCPU := runtime.NumCPU()
 
 	flag.IntVar(&ncpu, "ncpu", defaultNCPU, "ncpu")
+	flag.IntVar(&sampleSize, "sample", 1000, "sample size of lineages")
 	flag.Parse()
 	input = flag.Arg(0)
 	output = flag.Arg(1)
@@ -98,11 +99,9 @@ func batchSimu(configChan chan pop.Config) (resChan chan popConfig) {
 }
 
 type calculators struct {
-	ks *calculator.Ks
-	ct *calculator.AutoCovFFTW
-	t2 *meanvar.MeanVar
-	t3 *meanvar.MeanVar
-	t4 *meanvar.MeanVar
+	ks         *calculator.Ks
+	ct         *calculator.AutoCovFFTW
+	t2, t3, t4 []float64
 }
 
 func (c *calculators) Increment(xs []float64) {
@@ -112,22 +111,12 @@ func (c *calculators) Increment(xs []float64) {
 	c.ct.Increment(xs)
 }
 
-func (c *calculators) IncrementT2(t2 float64) {
-	c.t2.Increment(t2)
-}
-
-func (c *calculators) IncrementT3(t3 float64) {
-	c.t3.Increment(t3)
-}
-
-func (c *calculators) IncrementT4(t4 float64) {
-	c.t4.Increment(t4)
-}
-
 func (c *calculators) Append(c2 *calculators) {
 	c.ks.Append(c2.ks)
 	c.ct.Append(c2.ct)
-	c.t2.Append(c2.t2)
+	c.t2 = append(c.t2, c2.t2...)
+	c.t3 = append(c.t3, c2.t3...)
+	c.t4 = append(c.t4, c2.t4...)
 }
 
 type calcConfig struct {
@@ -154,9 +143,9 @@ func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 			}
 			ks := calculator.CalcKs(sequences)
 			ct := calculator.CalcCtFFTW(sequences, &dft)
-			t2 := pop.CalcT2(res.p)
-			t3 := pop.CalcT3(res.p)
-			t4 := pop.CalcT4(res.p)
+			t2 := pop.CalcT2(res.p, sampleSize)
+			t3 := pop.CalcT3(res.p, sampleSize)
+			t4 := pop.CalcT4(res.p, sampleSize)
 
 			cc.c = &calculators{}
 			cc.c.ks = ks
@@ -191,8 +180,10 @@ func collect(calcChan chan calcConfig) []Result {
 		if !found {
 			c = cc.c
 			v = desc.NewVariance()
+		} else {
+			c.Append(cc.c)
 		}
-		c.Append(cc.c)
+
 		v.Increment(c.ks.Mean.GetResult())
 
 		m[cc.cfg] = c
@@ -205,9 +196,9 @@ func collect(calcChan chan calcConfig) []Result {
 		res.Config = cfg
 		res.C = createCovResult(c)
 		res.C.KsVar = varm[cfg].GetResult()
-		res.T2 = c.t2.Mean.GetResult()
-		res.T3 = c.t3.Mean.GetResult()
-		res.T4 = c.t4.Mean.GetResult()
+		res.T2 = c.t2
+		res.T3 = c.t3
+		res.T4 = c.t4
 		results = append(results, res)
 	}
 
