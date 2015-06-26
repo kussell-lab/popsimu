@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
+	"github.com/mingzhi/gomath/stat/desc/meanvar"
 	. "github.com/mingzhi/popsimu/cmd"
 	"github.com/mingzhi/popsimu/pop"
 	"github.com/mingzhi/seqcor/calculator"
@@ -100,6 +100,9 @@ func batchSimu(configChan chan pop.Config) (resChan chan popConfig) {
 type calculators struct {
 	ks *calculator.Ks
 	ct *calculator.AutoCovFFTW
+	t2 *meanvar.MeanVar
+	t3 *meanvar.MeanVar
+	t4 *meanvar.MeanVar
 }
 
 func (c *calculators) Increment(xs []float64) {
@@ -109,9 +112,22 @@ func (c *calculators) Increment(xs []float64) {
 	c.ct.Increment(xs)
 }
 
+func (c *calculators) IncrementT2(t2 float64) {
+	c.t2.Increment(t2)
+}
+
+func (c *calculators) IncrementT3(t3 float64) {
+	c.t3.Increment(t3)
+}
+
+func (c *calculators) IncrementT4(t4 float64) {
+	c.t4.Increment(t4)
+}
+
 func (c *calculators) Append(c2 *calculators) {
 	c.ks.Append(c2.ks)
 	c.ct.Append(c2.ct)
+	c.t2.Append(c2.t2)
 }
 
 type calcConfig struct {
@@ -138,10 +154,16 @@ func calc(simResChan chan popConfig, seqLen int) chan calcConfig {
 			}
 			ks := calculator.CalcKs(sequences)
 			ct := calculator.CalcCtFFTW(sequences, &dft)
+			t2 := pop.CalcT2(res.p)
+			t3 := pop.CalcT3(res.p)
+			t4 := pop.CalcT4(res.p)
 
 			cc.c = &calculators{}
 			cc.c.ks = ks
 			cc.c.ct = ct
+			cc.c.t2 = t2
+			cc.c.t3 = t3
+			cc.c.t4 = t4
 
 			calcChan <- cc
 		}
@@ -183,6 +205,9 @@ func collect(calcChan chan calcConfig) []Result {
 		res.Config = cfg
 		res.C = createCovResult(c)
 		res.C.KsVar = varm[cfg].GetResult()
+		res.T2 = c.t2.Mean.GetResult()
+		res.T3 = c.t3.Mean.GetResult()
+		res.T4 = c.t4.Mean.GetResult()
 		results = append(results, res)
 	}
 
@@ -261,38 +286,7 @@ func simu(c pop.Config) *pop.Pop {
 	eventChan := generateEvents(moranEvent, otherEvents, c.NumGen)
 
 	pop.Evolve(eventChan)
-	coalesentTime(moranEvent, c.NumGen)
 	return p
-}
-
-func coalesentTime(e *pop.Event, numGen int) {
-	var moranEvent *pop.MoranSampler
-	moranEvent = e.Ops.(*pop.MoranSampler)
-
-	m := desc.NewMean()
-	for i := 0; i < len(moranEvent.Lineages); i++ {
-		for j := i + 1; j < len(moranEvent.Lineages); j++ {
-			a := moranEvent.Lineages[i]
-			b := moranEvent.Lineages[j]
-			t := backTravel(a, b)
-			m.Increment(float64(numGen - t + 1))
-		}
-	}
-	fmt.Println(m.GetResult())
-}
-
-func backTravel(a, b *pop.Lineage) int {
-	t1 := a.Time
-	t2 := b.Time
-	if t1 == t2 {
-		return t1
-	} else {
-		if t1 > t2 {
-			return backTravel(a.Parent, b)
-		} else {
-			return backTravel(a, b.Parent)
-		}
-	}
 }
 
 func send(done chan bool) {

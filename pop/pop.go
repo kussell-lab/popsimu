@@ -4,7 +4,9 @@ type Pop struct {
 	// Genomes stores a array of sequences
 	Genomes []Genome
 	// Circled indicates whether the genome is circled or not.
-	Circled bool
+	Circled       bool
+	Lineages      []*Lineage
+	NumGeneration int
 }
 
 func New() *Pop {
