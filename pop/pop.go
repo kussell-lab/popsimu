@@ -1,5 +1,9 @@
 package pop
 
+import (
+	"math"
+)
+
 type Pop struct {
 	// Genomes stores a array of sequences
 	Genomes []Genome
@@ -7,6 +11,7 @@ type Pop struct {
 	Circled       bool
 	Lineages      []*Lineage
 	NumGeneration int
+	TargetSize    int
 }
 
 func New() *Pop {
@@ -23,6 +28,31 @@ func (p *Pop) Length() int {
 	} else {
 		return p.Genomes[0].Length()
 	}
+}
+
+func (p *Pop) NewLineages() {
+	p.Lineages = make([]*Lineage, p.Size())
+	for i := 0; i < p.Size(); i++ {
+		p.Lineages[i] = &Lineage{}
+	}
+}
+
+func (p *Pop) MeanFit() float64 {
+	var m float64
+	for i := 0; i < p.Size(); i++ {
+		m += p.Genomes[i].Fitness()
+	}
+	return m / float64(p.Size())
+}
+
+func (p *Pop) MaxFit() float64 {
+	var max float64 = math.Inf(-1)
+	for i := 0; i < p.Size(); i++ {
+		if max < p.Genomes[i].Fitness() {
+			max = p.Genomes[i].Fitness()
+		}
+	}
+	return max
 }
 
 // RandomPopGenerator randomly generates a population
@@ -67,6 +97,9 @@ func (r *RandomPopGenerator) Operate(p *Pop) {
 	for i := 0; i < len(genomes); i++ {
 		p.Genomes[i] = &genomes[i]
 	}
+
+	p.TargetSize = r.Size
+	p.NewLineages()
 }
 
 // SimplePopGenerator generate a population with the same ancestral sequence.

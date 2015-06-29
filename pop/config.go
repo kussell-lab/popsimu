@@ -31,6 +31,8 @@ type Config struct {
 			Fragment int
 		}
 	}
+
+	SampleMethod string
 }
 
 func (c *Config) String() string {

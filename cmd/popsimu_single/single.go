@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"github.com/mingzhi/gomath/random"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
+	"github.com/mingzhi/gsl-cgo/randist"
 	. "github.com/mingzhi/popsimu/cmd"
 	"github.com/mingzhi/popsimu/pop"
 	"github.com/mingzhi/seqcor/calculator"
@@ -213,27 +213,34 @@ func newPop(c pop.Config, src rand.Source) *pop.Pop {
 	return p
 }
 
-func generateEvents(moranEvent *pop.Event, otherEvents []*pop.Event, numGen int) chan *pop.Event {
+func generateEvents(p *pop.Pop, sampler pop.Sampler, mutateEvents []*pop.Event, numGen int) chan *pop.Event {
 	c := make(chan *pop.Event)
 
 	go func() {
 		defer close(c)
-		totalRate := 0.0
-		for _, e := range otherEvents {
-			totalRate += e.Rate
+		mutateRate := 0.0
+		for _, e := range mutateEvents {
+			mutateRate += e.Rate
 		}
 
-		seed := time.Now().UnixNano()
-		src := rand.NewSource(seed)
-		poissonSampler := random.NewPoisson(totalRate, src)
-
-		r := rand.New(src)
+		rng := randist.NewRNG(randist.MT19937_1999)
+		defer rng.Free()
 
 		for i := 0; i < numGen; i++ {
-			c <- moranEvent
-			num := poissonSampler.Int()
+			// reproduction.
+			samplerEvent := &pop.Event{
+				Ops: sampler,
+				Pop: p,
+			}
+
+			sampler.Start()
+			go func() { c <- samplerEvent }()
+			sampler.Wait()
+
+			t := sampler.Time(p)
+			num := randist.PoissonRandomInt(rng, mutateRate*t*float64(p.Size()))
 			for j := 0; j < num; j++ {
-				c <- pop.Emit(otherEvents, r)
+				c <- pop.Emit(mutateEvents)
 			}
 		}
 	}()
@@ -248,9 +255,16 @@ func simu(c pop.Config) *pop.Pop {
 	p := newPop(c, src)
 	r := rand.New(src)
 
-	moranEvent := &pop.Event{
-		Ops: pop.NewMoranSampler(r),
-		Pop: p,
+	rng := randist.NewRNG(randist.MT19937_1999)
+
+	var sampler pop.Sampler
+	switch c.SampleMethod {
+	case "WrightFisher":
+		sampler = pop.NewWrightFisherSampler(rng)
+	case "LinearSelection":
+		sampler = pop.NewLinearSelectionSampler(rng)
+	default:
+		sampler = pop.NewMoranSampler(rng)
 	}
 
 	mutationEvent := &pop.Event{
@@ -259,8 +273,9 @@ func simu(c pop.Config) *pop.Pop {
 		Rate: c.Mutation.Rate * float64(c.Length),
 	}
 
+	fMutator := pop.NewFitnessMutator(c.Mutation.Beneficial.S, 0, rng, pop.MutateStep)
 	beneficialMutationEvent := &pop.Event{
-		Ops:  pop.NewBeneficialMutator(c.Mutation.Beneficial.S, r),
+		Ops:  fMutator,
 		Pop:  p,
 		Rate: c.Mutation.Beneficial.Rate * float64(c.Length),
 	}
@@ -274,7 +289,7 @@ func simu(c pop.Config) *pop.Pop {
 	}
 
 	otherEvents := []*pop.Event{mutationEvent, transferEvent, beneficialMutationEvent}
-	eventChan := generateEvents(moranEvent, otherEvents, c.NumGen)
+	eventChan := generateEvents(p, sampler, otherEvents, c.NumGen)
 
 	pop.Evolve(eventChan)
 	return p

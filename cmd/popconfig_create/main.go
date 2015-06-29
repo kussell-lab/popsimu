@@ -37,6 +37,8 @@ type ParameterSet struct {
 	Alphabet                string
 	BeneficialMutationRates []float64
 	FitnessEffects          []float64
+	SamplerMethod           string
+	NumGen                  int
 }
 
 func (p ParameterSet) String() string {
@@ -51,6 +53,7 @@ func (p ParameterSet) String() string {
 	fmt.Fprintf(&b, "Alphabet: %v\n", p.Alphabet)
 	fmt.Fprintf(&b, "Beneficial mutation rates: %v\n", p.BeneficialMutationRates)
 	fmt.Fprintf(&b, "Fitness Effect: %v\n", p.FitnessEffects)
+	fmt.Fprintf(&b, "Sample Method: %v\n", p.SamplerMethod)
 
 	return b.String()
 }
@@ -94,7 +97,13 @@ func create(par ParameterSet) []pop.Config {
 											cfg.Alphabet = par.Alphabet
 											cfg.Mutation.Beneficial.Rate = beneficalMutationRate
 											cfg.Mutation.Beneficial.S = s
-											cfg.NumGen = cfg.Size * cfg.Size * 10
+											cfg.SampleMethod = par.SamplerMethod
+											if par.NumGen < 1 {
+												cfg.NumGen = cfg.Size * cfg.Size * 10
+											} else {
+												cfg.NumGen = cfg.Size * 10
+											}
+
 											cfgs = append(cfgs, cfg)
 										}
 									}

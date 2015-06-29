@@ -12,12 +12,11 @@ func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vd float64) {
 	for i := 0; i < len(others); i++ {
 		events = append(events, &Event{Rate: float64(others[i].Size()), Pop: others[i]})
 	}
-	r := rand.New(rand.NewSource(1))
 
 	matrix := [][]float64{}
 	for s := 0; s < sampleSize; s++ {
-		p1 := Emit(events, r).Pop
-		p2 := Emit(events, r).Pop
+		p1 := Emit(events).Pop
+		p2 := Emit(events).Pop
 		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
 		x := make([]float64, p.Length())
 		for k := 0; k < p.Length(); k++ {
@@ -75,11 +74,10 @@ func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []flo
 	for i := 0; i < len(others); i++ {
 		events = append(events, &Event{Rate: float64(others[i].Size()), Pop: others[i]})
 	}
-	r := rand.New(rand.NewSource(1))
 
 	for s := 0; s < sampleSize; s++ {
-		p1 := Emit(events, r).Pop
-		p2 := Emit(events, r).Pop
+		p1 := Emit(events).Pop
+		p2 := Emit(events).Pop
 		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
 		profile := []float64{}
 		for k := 0; k < p.Length(); k++ {

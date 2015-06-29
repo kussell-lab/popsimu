@@ -105,8 +105,9 @@ func findMostRecentCoalescentTime(lineages Lineages) int {
 		coalTimes := []int{}
 		for i := 0; i < len(lineages); i++ {
 			for j := i + 1; j < len(lineages); j++ {
-				if lineages[i].BirthTime == lineages[j].BirthTime {
-					coalTimes = append(coalTimes, lineages[i].BirthTime)
+				a, b := lineages[i], lineages[j]
+				if a.BirthTime == b.BirthTime && a.Parent == b.Parent {
+					coalTimes = append(coalTimes, a.BirthTime)
 				}
 			}
 		}
@@ -116,7 +117,12 @@ func findMostRecentCoalescentTime(lineages Lineages) int {
 			return coalTimes[0]
 		} else {
 			sort.Sort(ByBirthTimeReverse{lineages})
-			lineages[0] = lineages[0].Parent
+			currentTime := lineages[0].BirthTime
+			for i := 0; i < len(lineages); i++ {
+				if lineages[i].BirthTime == currentTime {
+					lineages[i] = lineages[i].Parent
+				}
+			}
 			return findMostRecentCoalescentTime(lineages)
 		}
 	}
