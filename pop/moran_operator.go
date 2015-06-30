@@ -2,6 +2,7 @@ package pop
 
 import (
 	"github.com/mingzhi/gsl-cgo/randist"
+	"math"
 	"sync"
 )
 
@@ -39,11 +40,14 @@ func (m *MoranSampler) Operate(p *Pop) {
 	// random choose a going-death one
 	d := randist.UniformRandomInt(m.rng, p.Size())
 	// random choose a going-birth one according to the fitness.
+	meanFit := p.MeanFit()
 	var weights []float64
 	for i := 0; i < p.Size(); i++ {
-		var f float64
-		f = p.Genomes[i].Fitness()
-		weights = append(weights, f+1.0/float64(p.Size()))
+		meanOffSpring := math.Exp(p.Genomes[i].Fitness() - meanFit)
+		// var f float64
+		// f = p.Genomes[i].Fitness()
+		// weights = append(weights, f+1.0/float64(p.Size()))
+		weights = append(weights, meanOffSpring)
 	}
 	b := RouletteWheelSelect(weights)
 
