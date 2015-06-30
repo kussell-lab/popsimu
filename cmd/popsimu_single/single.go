@@ -213,7 +213,7 @@ func newPop(c pop.Config, src rand.Source) *pop.Pop {
 	return p
 }
 
-func generateEvents(p *pop.Pop, sampler pop.Sampler, mutateEvents []*pop.Event, numGen int) chan *pop.Event {
+func generateEvents(p *pop.Pop, sampler pop.Sampler, mutateEvents []*pop.Event, numGen int, rng *randist.RNG) chan *pop.Event {
 	c := make(chan *pop.Event)
 
 	go func() {
@@ -222,9 +222,6 @@ func generateEvents(p *pop.Pop, sampler pop.Sampler, mutateEvents []*pop.Event, 
 		for _, e := range mutateEvents {
 			mutateRate += e.Rate
 		}
-
-		rng := randist.NewRNG(randist.MT19937_1999)
-		defer rng.Free()
 
 		for i := 0; i < numGen; i++ {
 			// reproduction.
@@ -256,6 +253,8 @@ func simu(c pop.Config) *pop.Pop {
 	r := rand.New(src)
 
 	rng := randist.NewRNG(randist.MT19937_1999)
+	defer rng.Free()
+	rng.Seed(time.Now().UnixNano())
 
 	var sampler pop.Sampler
 	switch c.SampleMethod {
@@ -289,7 +288,7 @@ func simu(c pop.Config) *pop.Pop {
 	}
 
 	otherEvents := []*pop.Event{mutationEvent, transferEvent, beneficialMutationEvent}
-	eventChan := generateEvents(p, sampler, otherEvents, c.NumGen)
+	eventChan := generateEvents(p, sampler, otherEvents, c.NumGen, rng)
 
 	pop.Evolve(eventChan)
 	return p
