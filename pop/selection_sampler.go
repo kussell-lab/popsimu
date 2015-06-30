@@ -21,16 +21,14 @@ func (w *LinearSelectionSampler) Operate(p *Pop) {
 	defer w.wg.Done()
 
 	meanFit := p.MeanFit()
-	sizeRatio := float64(p.Size() / p.TargetSize)
+	sizeRatio := float64(p.Size()) / float64(p.TargetSize)
 	// chemical potensial regulating the population size.
 	cpot := meanFit - (1.0 - sizeRatio)
-
 	currentGenomes := p.Genomes
 	currentLineages := p.Lineages
 	newGenomes := []Genome{}
 	newLineages := []*Lineage{}
 	numGeneration := p.NumGeneration + 1
-
 	for i := 0; i < p.Size(); i++ {
 		meanOffSpring := math.Exp(p.Genomes[i].Fitness() - cpot)
 		numOffSpring := randist.PoissonRandomInt(w.rng, meanOffSpring)
@@ -49,7 +47,6 @@ func (w *LinearSelectionSampler) Operate(p *Pop) {
 			newLineages = append(newLineages, l)
 		}
 	}
-
 	p.Genomes = newGenomes
 	p.Lineages = newLineages
 	p.NumGeneration = numGeneration

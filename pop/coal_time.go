@@ -1,39 +1,28 @@
 package pop
 
 import (
-	"fmt"
 	"math/rand"
 	"runtime"
 	"sort"
-	"time"
 )
 
 type sampleT func(p *Pop)
 
 func CalcT2(p *Pop, sampleSize int) []float64 {
-	t0 := time.Now()
 	lineageChan := sampleLineages(p, sampleSize, 2)
 	res := calcCoalTimes(lineageChan, p)
-	t1 := time.Now()
-	fmt.Printf("Calculate T2 using %v second.\n", t1.Sub(t0).Seconds())
 	return res
 }
 
 func CalcT3(p *Pop, sampleSize int) []float64 {
-	t0 := time.Now()
 	lineageChan := sampleLineages(p, sampleSize, 3)
 	res := calcCoalTimes(lineageChan, p)
-	t1 := time.Now()
-	fmt.Printf("Calculate T3 using %v second.\n", t1.Sub(t0).Seconds())
 	return res
 }
 
 func CalcT4(p *Pop, sampleSize int) []float64 {
-	t0 := time.Now()
 	lineageChan := sampleLineages(p, sampleSize, 4)
 	res := calcCoalTimes(lineageChan, p)
-	t1 := time.Now()
-	fmt.Printf("Calculate T4 using %v second.\n", t1.Sub(t0).Seconds())
 	return res
 }
 
