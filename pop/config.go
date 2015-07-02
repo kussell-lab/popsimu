@@ -32,7 +32,8 @@ type Config struct {
 		}
 	}
 
-	SampleMethod string
+	SampleMethod  string
+	FragGenerator string
 }
 
 func (c *Config) String() string {

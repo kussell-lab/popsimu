@@ -38,6 +38,7 @@ type ParameterSet struct {
 	BeneficialMutationRates []float64
 	FitnessEffects          []float64
 	SamplerMethod           string
+	FragGenerator           string
 	NumGen                  int
 }
 
@@ -54,6 +55,7 @@ func (p ParameterSet) String() string {
 	fmt.Fprintf(&b, "Beneficial mutation rates: %v\n", p.BeneficialMutationRates)
 	fmt.Fprintf(&b, "Fitness Effect: %v\n", p.FitnessEffects)
 	fmt.Fprintf(&b, "Sample Method: %v\n", p.SamplerMethod)
+	fmt.Fprintf(&b, "Frag Generator: %v\n", p.FragGenerator)
 
 	return b.String()
 }
@@ -98,6 +100,7 @@ func create(par ParameterSet) []pop.Config {
 											cfg.Mutation.Beneficial.Rate = beneficalMutationRate
 											cfg.Mutation.Beneficial.S = s
 											cfg.SampleMethod = par.SamplerMethod
+											cfg.FragGenerator = par.FragGenerator
 											if par.NumGen < 1 {
 												cfg.NumGen = cfg.Size * cfg.Size * 10
 											} else {

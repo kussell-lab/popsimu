@@ -279,8 +279,16 @@ func simu(c pop.Config) *pop.Pop {
 		Rate: c.Mutation.Beneficial.Rate * float64(c.Length),
 	}
 
-	lambda := 1.0 / float64(c.Transfer.In.Fragment)
-	fragGenerator := pop.NewExpFrag(lambda, src)
+	// choosing fragment size generator.
+	var fragGenerator pop.FragSizeGenerator
+	switch c.FragGenerator {
+	case "exponential":
+		lambda := 1.0 / float64(c.Transfer.In.Fragment)
+		fragGenerator = pop.NewExpFrag(lambda, src)
+	default:
+		fragGenerator = pop.NewConstantFrag(c.Transfer.In.Fragment)
+	}
+
 	transferEvent := &pop.Event{
 		Ops:  pop.NewSimpleTransfer(fragGenerator, r),
 		Pop:  p,
