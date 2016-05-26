@@ -5,7 +5,7 @@ import (
 	"flag"
 	"github.com/mingzhi/gomath/stat/correlation"
 	"github.com/mingzhi/gomath/stat/desc"
-	"github.com/mingzhi/gsl-cgo/randist"
+	"github.com/mingzhi/numgo/random"
 	. "github.com/mingzhi/popsimu/cmd"
 	"github.com/mingzhi/popsimu/pop"
 	"github.com/mingzhi/seqcor/calculator"
@@ -252,7 +252,7 @@ func simu(c pop.Config) *pop.Pop {
 	p := newPop(c, src)
 	r := rand.New(src)
 
-	rng := randist.NewRNG(randist.MT19937_1999)
+	rng := rand.NewSource(1)
 	defer rng.Free()
 	rng.Seed(time.Now().UnixNano())
 

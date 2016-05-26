@@ -1,23 +1,27 @@
 package pop
 
 import (
-	"github.com/mingzhi/gomath/stat/correlation"
-	"github.com/mingzhi/gomath/stat/desc"
 	"math/rand"
 	"runtime"
+
+	"github.com/mingzhi/gomath/stat/correlation"
+	"github.com/mingzhi/gomath/stat/desc"
 )
 
-func CalcKs(sampleSize int, p *Pop, others ...*Pop) (ks, vd float64) {
+func CalcKs(sampleSize int, src rand.Source, p *Pop, others ...*Pop) (ks, vd float64) {
 	events := []*Event{&Event{Rate: float64(p.Size()), Pop: p}}
 	for i := 0; i < len(others); i++ {
 		events = append(events, &Event{Rate: float64(others[i].Size()), Pop: others[i]})
 	}
 
+	rw := NewRouletteWheel(src)
+	r := rand.New(src)
+
 	matrix := [][]float64{}
 	for s := 0; s < sampleSize; s++ {
-		p1 := Emit(events).Pop
-		p2 := Emit(events).Pop
-		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
+		p1 := Emit(events, rw).Pop
+		p2 := Emit(events, rw).Pop
+		i, j := r.Intn(p1.Size()), r.Intn(p2.Size())
 		x := make([]float64, p.Length())
 		for k := 0; k < p.Length(); k++ {
 			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
@@ -47,10 +51,11 @@ func calcKs(matrix [][]float64) (ks, vd float64) {
 	return
 }
 
-func CrossKs(sampleSize int, p1, p2 *Pop) (ks, vd float64) {
+func CrossKs(sampleSize int, src rand.Source, p1, p2 *Pop) (ks, vd float64) {
+	r := rand.New(src)
 	matrix := [][]float64{}
 	for s := 0; s < sampleSize; s++ {
-		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
+		i, j := r.Intn(p1.Size()), r.Intn(p2.Size())
 		x := make([]float64, p1.Length())
 		for k := 0; k < p1.Length(); k++ {
 			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
@@ -64,7 +69,7 @@ func CrossKs(sampleSize int, p1, p2 *Pop) (ks, vd float64) {
 	return
 }
 
-func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []float64) {
+func CalcCov(sampleSize, maxL int, src rand.Source, p *Pop, others ...*Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
 	if maxL > p.Length() {
 		maxL = p.Length()
@@ -75,10 +80,13 @@ func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []flo
 		events = append(events, &Event{Rate: float64(others[i].Size()), Pop: others[i]})
 	}
 
+	rw := NewRouletteWheel(src)
+	r := rand.New(src)
+
 	for s := 0; s < sampleSize; s++ {
-		p1 := Emit(events).Pop
-		p2 := Emit(events).Pop
-		i, j := rand.Intn(p1.Size()), rand.Intn(p2.Size())
+		p1 := Emit(events, rw).Pop
+		p2 := Emit(events, rw).Pop
+		i, j := r.Intn(p1.Size()), r.Intn(p2.Size())
 		profile := []float64{}
 		for k := 0; k < p.Length(); k++ {
 			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {
@@ -94,14 +102,16 @@ func CalcCov(sampleSize, maxL int, p *Pop, others ...*Pop) (cm, ct, cr, cs []flo
 	return calcCov(matrix, p.Length(), circular)
 }
 
-func CrossCov(sampleSize, maxL int, p1, p2 *Pop) (cm, ct, cr, cs []float64) {
+func CrossCov(sampleSize, maxL int, src rand.Source, p1, p2 *Pop) (cm, ct, cr, cs []float64) {
 	matrix := [][]float64{}
 	if maxL > p1.Length() {
 		maxL = p1.Length()
 	}
+
+	r := rand.New(src)
 	for s := 0; s < sampleSize; s++ {
-		i := rand.Intn(p1.Size())
-		j := rand.Intn(p2.Size())
+		i := r.Intn(p1.Size())
+		j := r.Intn(p2.Size())
 		profile := []float64{}
 		for k := 0; k < p1.Length(); k++ {
 			if p1.Genomes[i].Seq()[k] != p2.Genomes[j].Seq()[k] {

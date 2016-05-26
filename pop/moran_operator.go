@@ -2,8 +2,9 @@ package pop
 
 import (
 	"math"
-	"sync"
 	"math/rand"
+	"sync"
+
 	"github.com/mingzhi/numgo/random"
 )
 
@@ -12,12 +13,13 @@ import (
 // In each step of Moran process, two individuals are randomly chose:
 // one to reproduce and the other to be replaced.
 type MoranSampler struct {
-	rng *random.Rand// random number generator.
+	rng *random.Rand // random number generator.
 	wg  sync.WaitGroup
+	rw  *RouletteWheel
 }
 
 func NewMoranSampler(src rand.Source) *MoranSampler {
-	return &MoranSampler{rng: random.New(src)}
+	return &MoranSampler{rng: random.New(src), rw: NewRouletteWheel(src)}
 }
 
 func createNewLineages(parent *Lineage, t int) (a, b *Lineage) {
@@ -50,7 +52,7 @@ func (m *MoranSampler) Operate(p *Pop) {
 		// weights = append(weights, f+1.0/float64(p.Size()))
 		weights = append(weights, meanOffSpring)
 	}
-	b := RouletteWheelSelect(weights)
+	b := m.rw.Select(weights)
 
 	if d != b {
 		p.Genomes[d] = p.Genomes[b].Copy()
@@ -61,7 +63,7 @@ func (m *MoranSampler) Operate(p *Pop) {
 
 func (m *MoranSampler) Time(p *Pop) float64 {
 	lambda := 1 / float64(p.Size())
-	t := m.rng.Exponential(lambda)
+	t := m.rng.ExpFloat64(lambda)
 	return t
 }
 

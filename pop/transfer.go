@@ -2,6 +2,8 @@ package pop
 
 import (
 	"math/rand"
+
+	"github.com/mingzhi/numgo/random"
 )
 
 type ConstantFrag struct {
@@ -27,6 +29,7 @@ func (e *ExpFrag) Size() int {
 	return int(e.r.ExpFloat64() / e.Lambda)
 }
 
+// NewExpFrag return a new ExpFrag.
 func NewExpFrag(lambda float64, src rand.Source) *ExpFrag {
 	var e ExpFrag
 	e.Lambda = lambda
@@ -34,6 +37,7 @@ func NewExpFrag(lambda float64, src rand.Source) *ExpFrag {
 	return &e
 }
 
+// FragSizeGenerator is a interface with a function return the size of fragment.
 type FragSizeGenerator interface {
 	Size() int
 }
@@ -44,24 +48,24 @@ type FragSizeGenerator interface {
 // And a piece of the receiver's genome will be replaced by
 // a sequence at corresponding genomic positions.
 type SimpleTransfer struct {
-	// Rand is a source of random numbers.
-	Rand Rand
 	Frag FragSizeGenerator
+
+	r *random.Rand
 }
 
-func NewSimpleTransfer(frag FragSizeGenerator, r Rand) *SimpleTransfer {
-	return &SimpleTransfer{Frag: frag, Rand: r}
+func NewSimpleTransfer(frag FragSizeGenerator, src rand.Source) *SimpleTransfer {
+	return &SimpleTransfer{Frag: frag, r: random.New(src)}
 }
 
 func (s *SimpleTransfer) Operate(p *Pop) {
 	var length int
 	// We first randomly decise two sequences.
-	a := s.Rand.Intn(p.Size())
-	b := s.Rand.Intn(p.Size())
+	a := s.r.Intn(p.Size())
+	b := s.r.Intn(p.Size())
 	length = p.Genomes[a].Length()
 	if a != b {
 		// Randomly determine the start point of the transfer
-		start := s.Rand.Intn(length)
+		start := s.r.Intn(length)
 		end := start + s.Frag.Size()
 		// We need to check whether the end point hits the end of the sequence.
 		// And whether is a circled sequence or not.
@@ -85,25 +89,27 @@ type OutTransfer struct {
 	DonorPop *Pop
 }
 
-func NewOutTransfer(frag FragSizeGenerator, donorPop *Pop, r Rand) *OutTransfer {
+// NewOutTransfer return a new OutTransfer.
+func NewOutTransfer(frag FragSizeGenerator, donorPop *Pop, src rand.Source) *OutTransfer {
 	o := OutTransfer{}
-	o.Rand = r
+	o.r = random.New(src)
 	o.Frag = frag
 	o.DonorPop = donorPop
 	return &o
 }
 
+// Operate perform a out population transfer.
 func (o *OutTransfer) Operate(p *Pop) {
 	var length int // genome length
 	// We first randomly choose a sequence from the donor sequence,
 	// and a sequence from the receipient population.
-	a := o.Rand.Intn(o.DonorPop.Size())
-	b := o.Rand.Intn(p.Size())
+	a := o.r.Intn(o.DonorPop.Size())
+	b := o.r.Intn(p.Size())
 
 	length = p.Genomes[b].Length()
 
 	// Randomly determine the start point of the transfer.
-	start := o.Rand.Intn(length)
+	start := o.r.Intn(length)
 	end := start + o.Frag.Size()
 	// We need to check whether the point hits the boundary of the sequence.
 	if end < length {

@@ -2,7 +2,7 @@ package pop
 
 import (
 	"math/rand"
-	
+
 	"github.com/mingzhi/numgo/random"
 )
 
@@ -11,19 +11,24 @@ import (
 // and equal transition rates between bases.
 type SimpleMutator struct {
 	// Rand is a source of random numbers
-	Rand     Rand
 	Alphabet []byte
+
+	r *random.Rand
 }
 
-func NewSimpleMutator(r Rand, alphabet []byte) *SimpleMutator {
-	return &SimpleMutator{Rand: r, Alphabet: alphabet}
+// NewSimpleMutator returns a new SimpleMutator.
+func NewSimpleMutator(alphabet []byte, src rand.Source) *SimpleMutator {
+	r := random.New(src)
+	s := SimpleMutator{Alphabet: alphabet, r: r}
+	return &s
 }
 
+// Operate mutate a single position at a genome from the *Pop.
 func (s *SimpleMutator) Operate(p *Pop) {
 	// We need to determine randomly which genome will have a mutation.
 	// and which position on the genome.
-	g := s.Rand.Intn(p.Size())
-	pos := s.Rand.Intn(p.Length())
+	g := s.r.Intn(p.Size())
+	pos := s.r.Intn(p.Length())
 
 	// Randomly choose a letter and replace the existed one.
 	alphabet := []byte{}
@@ -32,36 +37,44 @@ func (s *SimpleMutator) Operate(p *Pop) {
 			alphabet = append(alphabet, s.Alphabet[j])
 		}
 	}
-	p.Genomes[g].Seq()[pos] = alphabet[s.Rand.Intn(len(alphabet))]
+	p.Genomes[g].Seq()[pos] = alphabet[s.r.Intn(len(alphabet))]
 }
 
+// BeneficialMutator is a selective mutator.
 type BeneficialMutator struct {
-	S    float64
-	Rand Rand
+	S float64
+	r *random.Rand
 }
 
+// Operate increase the fitness score by S.
 func (m *BeneficialMutator) Operate(p *Pop) {
 	// randomly choose a genome.
-	g := m.Rand.Intn(p.Size())
+	g := m.r.Intn(p.Size())
 	var ag *NeutralGenome
 	// increase its number of beneficial mutation
 	ag = p.Genomes[g].(*NeutralGenome)
 	ag.fitness += m.S
 }
 
-func NewBeneficialMutator(s float64, r Rand) *BeneficialMutator {
-	return &BeneficialMutator{Rand: r, S: s}
+// NewBeneficialMutator returns a new BeneficialMutator.
+func NewBeneficialMutator(s float64, src rand.Source) *BeneficialMutator {
+	r := random.New(src)
+	return &BeneficialMutator{r: r, S: s}
 }
 
+// DeltaMutateFunc is a type of function that increase or decrease
+// the fitness score by delta.
 type DeltaMutateFunc func(f *FitnessMutator) (delta float64)
 
+// FitnessMutator is a mutator on fitness score.
 type FitnessMutator struct {
 	Scale float64
 	Shape float64
-	rand *random.Rand
+	rand  *random.Rand
 	delta DeltaMutateFunc
 }
 
+// NewFitnessMutator returns a new fitness mutator.
 func NewFitnessMutator(scale, shape float64, src rand.Source, deltaFunc DeltaMutateFunc) *FitnessMutator {
 	var f FitnessMutator
 	f.Scale = scale
@@ -78,16 +91,19 @@ func (f *FitnessMutator) mutate(p *Pop) {
 	ag.fitness += f.delta(f)
 }
 
+// Operate mutate the fitness score.
 func (f *FitnessMutator) Operate(p *Pop) {
 	f.mutate(p)
 }
 
-func (f *FitnessMutator) MutateStep() (delta float64) {
+// FitnessMutateStep return the delta fitness.
+func FitnessMutateStep(f *FitnessMutator) (delta float64) {
 	delta = f.Scale
 	return
 }
 
-func (f *FitnessMutator) MutateExponential() (delta float64) {
-	delta = f.rand.Exponential(f.Scale)
+// FitnessMutateExponential return a exp value of delta.
+func FitnessMutateExponential(f *FitnessMutator) (delta float64) {
+	delta = f.rand.ExpFloat64(f.Scale)
 	return delta
 }

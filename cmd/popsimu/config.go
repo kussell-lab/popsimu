@@ -2,23 +2,25 @@ package main
 
 import (
 	"flag"
-	"github.com/mingzhi/popsimu/pop"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"runtime"
+
+	"github.com/mingzhi/popsimu/pop"
+	"gopkg.in/yaml.v2"
 )
 
 // Config to read flags and configure file.
 type cmdConfig struct {
 	// Flags.
-	workspace string
-	config    string
-	prefix    string
-	outdir    string
-	ncpu      int
-	numGen    int // number of generations.
-	numRep    int // number of replicates.
+	workspace  string
+	config     string
+	prefix     string
+	outdir     string
+	ncpu       int
+	numGen     int // number of generations.
+	numRep     int // number of replicates.
+	sampleSize int
 
 	popConfigs []pop.Config
 }
@@ -32,6 +34,7 @@ func (c *cmdConfig) Flags(fs *flag.FlagSet) *flag.FlagSet {
 	fs.IntVar(&c.ncpu, "ncpu", runtime.NumCPU(), "number of CPUs for using")
 	fs.IntVar(&c.numGen, "g", 1, "number of generations")
 	fs.IntVar(&c.numRep, "r", 1, "number of replicates")
+	fs.IntVar(&c.sampleSize, "s", 1000, "sample size")
 	return fs
 }
 

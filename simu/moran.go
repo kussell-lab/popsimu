@@ -1,76 +1,92 @@
 package simu
 
 import (
-	"github.com/mingzhi/gomath/random"
-	"github.com/mingzhi/popsimu/pop"
 	"math/rand"
 	"time"
+
+	"github.com/mingzhi/numgo/random"
+	"github.com/mingzhi/popsimu/pop"
 )
 
-func RunMoran(pops []*pop.Pop, popConfigs []pop.Config, numGen int) {
-	// Random source.
-	seed := time.Now().UnixNano()
-	src := random.NewLockedSource(rand.NewSource(seed))
+// Moran run simulations of multiple populations evolving under the Moran model.
+func Moran(pops []*pop.Pop, popConfigs []pop.Config, numGen int) {
+	randomSrc := rand.NewSource(time.Now().UnixNano())
 
-	// Prepare possible events.
-	events := generateEvents(popConfigs, pops, src)
-	moranEvents := generateMoranEvents(popConfigs, pops, src)
+	// Prepare a collection of possible events.
+	events := generateEvents(popConfigs, pops, randomSrc)
+	moranEvents := generateMoranEvents(popConfigs, pops, randomSrc)
 
-	totalSize := 0
+	totalPopSize := 0
 	for i := 0; i < len(pops); i++ {
-		totalSize += pops[i].Size
+		totalPopSize += pops[i].Size()
 	}
 
+	// total rate of all events scale by the total population size.
 	totalRate := 0.0
 	for i := 0; i < len(events); i++ {
 		// the rate unit is per genome per generation,
 		// so we need to rescale it by dividing the population size.
-		totalRate += events[i].Rate / float64(totalSize)
+		totalRate += events[i].Rate / float64(totalPopSize)
 	}
 
-	// Prepare Poisson random source.
-	poisson := random.NewPoisson(totalRate, src)
-	r := rand.New(src)
-
-	// Create an event channel and load it.
+	r := random.New(randomSrc)
+	rw := pop.NewRouletteWheel(randomSrc)
 	eventChan := make(chan *pop.Event)
 	go func() {
 		defer close(eventChan)
 		for i := 0; i < numGen; i++ {
-			e := pop.Emit(moranEvents, r)
+			e := pop.Emit(moranEvents, rw)
 			eventChan <- e
-			eventCount := poisson.Int()
-			for i := 0; i < eventCount; i++ {
-				e := pop.Emit(events, r)
+			eventCount := r.PoissonInt64(totalRate)
+			var i int64
+			for ; i < eventCount; i++ {
+				e := pop.Emit(events, rw)
 				eventChan <- e
 			}
 		}
 	}()
 
 	pop.Evolve(eventChan)
-
-	return pops
 }
 
 func generateEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (events []*pop.Event) {
-	r := rand.New(src)
 	for i := 0; i < len(popConfigs); i++ {
 		c := popConfigs[i]
 		p := pops[i]
 
 		mutateEvent := &pop.Event{
-			Rate: c.Mutation.Rate * float64(p.Size*c.Length),
-			Ops:  pop.NewSimpleMutator(r),
+			Rate: c.Mutation.Rate * float64(p.Size()*c.Length),
+			Ops:  pop.NewSimpleMutator([]byte(c.Alphabet), src),
 			Pop:  pops[i],
 		}
 		events = append(events, mutateEvent)
 
+		// choosing fragment size generator.
+		var inFragGenerator pop.FragSizeGenerator
+		switch c.FragGenerator {
+		case "exponential":
+			lambda := 1.0 / float64(c.Transfer.In.Fragment)
+			inFragGenerator = pop.NewExpFrag(lambda, src)
+		default:
+			inFragGenerator = pop.NewConstantFrag(c.Transfer.In.Fragment)
+		}
+
 		inTransferEvent := &pop.Event{
-			Rate: c.Transfer.In.Rate * float64(p.Size*c.Length),
-			Ops:  pop.NewSimpleTransfer(c.Transfer.In.Fragment, r),
+			Rate: c.Transfer.In.Rate * float64(p.Size()*c.Length),
+			Ops:  pop.NewSimpleTransfer(inFragGenerator, src),
 			Pop:  pops[i],
 		}
 		events = append(events, inTransferEvent)
+
+		// choosing fragment size generator.
+		var outFragGenerator pop.FragSizeGenerator
+		switch c.FragGenerator {
+		case "exponential":
+			lambda := 1.0 / float64(c.Transfer.Out.Fragment)
+			inFragGenerator = pop.NewExpFrag(lambda, src)
+		default:
+			inFragGenerator = pop.NewConstantFrag(c.Transfer.In.Fragment)
+		}
 
 		outTransferEvents := []*pop.Event{}
 		totalSize := 0
@@ -78,11 +94,11 @@ func generateEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (
 			pj := pops[j]
 			if i != j {
 				outE := &pop.Event{
-					Rate: c.Transfer.Out.Rate * float64(p.Size*c.Length*pj.Size),
-					Ops:  pop.NewOutTransfer(c.Transfer.Out.Fragment, pops[j], r),
+					Rate: c.Transfer.Out.Rate * float64(p.Size()*c.Length*pj.Size()),
+					Ops:  pop.NewOutTransfer(outFragGenerator, pj, src),
 					Pop:  pops[i],
 				}
-				totalSize += pj.Size
+				totalSize += pj.Size()
 				outTransferEvents = append(outTransferEvents, outE)
 			}
 		}
@@ -101,7 +117,7 @@ func generateMoranEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Sour
 	r := rand.New(src)
 	for i := 0; i < len(popConfigs); i++ {
 		event := &pop.Event{
-			Rate: float64(pops[i].Size),
+			Rate: float64(pops[i].Size()),
 			Ops:  pop.NewMoranSampler(r),
 			Pop:  pops[i],
 		}
