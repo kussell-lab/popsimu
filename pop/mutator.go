@@ -1,7 +1,9 @@
 package pop
 
 import (
-	"github.com/mingzhi/gsl-cgo/randist"
+	"math/rand"
+	
+	"github.com/mingzhi/numgo/random"
 )
 
 // SimpleMutator implements a simple mutation model,
@@ -56,21 +58,21 @@ type DeltaMutateFunc func(f *FitnessMutator) (delta float64)
 type FitnessMutator struct {
 	Scale float64
 	Shape float64
-	RNG   *randist.RNG
+	rand *random.Rand
 	delta DeltaMutateFunc
 }
 
-func NewFitnessMutator(scale, shape float64, rng *randist.RNG, deltaFunc DeltaMutateFunc) *FitnessMutator {
+func NewFitnessMutator(scale, shape float64, src rand.Source, deltaFunc DeltaMutateFunc) *FitnessMutator {
 	var f FitnessMutator
 	f.Scale = scale
 	f.Shape = shape
-	f.RNG = rng
+	f.rand = random.New(src)
 	f.delta = deltaFunc
 	return &f
 }
 
 func (f *FitnessMutator) mutate(p *Pop) {
-	g := randist.UniformRandomInt(f.RNG, p.Size())
+	g := f.rand.Intn(p.Size())
 	var ag *NeutralGenome
 	ag = p.Genomes[g].(*NeutralGenome)
 	ag.fitness += f.delta(f)
@@ -80,22 +82,12 @@ func (f *FitnessMutator) Operate(p *Pop) {
 	f.mutate(p)
 }
 
-func MutateGaussian(f *FitnessMutator) (delta float64) {
-	delta = randist.GaussianRandomFloat64(f.RNG, f.Scale)
-	return
-}
-
-func MutateStep(f *FitnessMutator) (delta float64) {
+func (f *FitnessMutator) MutateStep() (delta float64) {
 	delta = f.Scale
 	return
 }
 
-func MutateExponential(f *FitnessMutator) (delta float64) {
-	delta = randist.ExponentialRandomFloat64(f.RNG, f.Scale)
+func (f *FitnessMutator) MutateExponential() (delta float64) {
+	delta = f.rand.Exponential(f.Scale)
 	return delta
-}
-
-func MutateGamma(f *FitnessMutator) (delta float64) {
-	delta = randist.GammaRandomFloat64(f.RNG, f.Shape, f.Scale)
-	return
 }

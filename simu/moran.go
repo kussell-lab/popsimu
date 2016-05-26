@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func RunMoran(pops []*pop.Pop, popConfigs []pop.Config, numGen int) []*pop.Pop {
+func RunMoran(pops []*pop.Pop, popConfigs []pop.Config, numGen int) {
 	// Random source.
 	seed := time.Now().UnixNano()
 	src := random.NewLockedSource(rand.NewSource(seed))

@@ -1,19 +1,20 @@
 package pop
 
 import (
-	"github.com/mingzhi/gsl-cgo/randist"
+	"github.com/mingzhi/numgo/random"
 	"math"
 	"sync"
+	"math/rand"
 )
 
 type LinearSelectionSampler struct {
-	rng *randist.RNG
+	rand *random.Rand
 	wg  sync.WaitGroup
 }
 
-func NewLinearSelectionSampler(rng *randist.RNG) *LinearSelectionSampler {
+func NewLinearSelectionSampler(src rand.Source) *LinearSelectionSampler {
 	var ls LinearSelectionSampler
-	ls.rng = rng
+	ls.rand = random.New(src)
 	return &ls
 }
 
@@ -31,7 +32,7 @@ func (w *LinearSelectionSampler) Operate(p *Pop) {
 	numGeneration := p.NumGeneration + 1
 	for i := 0; i < p.Size(); i++ {
 		meanOffSpring := math.Exp(p.Genomes[i].Fitness() - cpot)
-		numOffSpring := randist.PoissonRandomInt(w.rng, meanOffSpring)
+		numOffSpring := int(w.rand.Poisson(meanOffSpring))
 		for o := 0; o < numOffSpring; o++ {
 			var g Genome
 			if o == 0 {

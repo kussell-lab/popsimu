@@ -1,20 +1,21 @@
 package pop
 
 import (
-	"github.com/mingzhi/gsl-cgo/randist"
+	"github.com/mingzhi/numgo/random"
+	"math/rand"
 	"sync"
 )
 
 // WrightFisherSampler for Wright-Fisher reproduction model.
 type WrightFisherSampler struct {
-	rng *randist.RNG
+	rand *random.Rand
 	wg  sync.WaitGroup
 }
 
 // NewWrightFisherSampler create a new WrightFisherSampler.
-func NewWrightFisherSampler(r *randist.RNG) *WrightFisherSampler {
+func NewWrightFisherSampler(src rand.Source) *WrightFisherSampler {
 	var w WrightFisherSampler
-	w.rng = r
+	w.rand = random.New(src)
 	return &w
 }
 
@@ -32,7 +33,7 @@ func (w *WrightFisherSampler) Operate(p *Pop) {
 
 	usedGenomes := make(map[int]bool)
 	for i := 0; i < p.Size(); i++ {
-		index := randist.UniformRandomInt(w.rng, p.Size())
+		index := w.rand.Intn(p.Size())
 		if usedGenomes[index] {
 			newGenomes[i] = currentGenomes[index].Copy()
 		} else {

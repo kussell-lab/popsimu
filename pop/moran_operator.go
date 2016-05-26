@@ -1,9 +1,10 @@
 package pop
 
 import (
-	"github.com/mingzhi/gsl-cgo/randist"
 	"math"
 	"sync"
+	"math/rand"
+	"github.com/mingzhi/numgo/random"
 )
 
 // MoranSampler implements Moran reproduction model.
@@ -11,12 +12,12 @@ import (
 // In each step of Moran process, two individuals are randomly chose:
 // one to reproduce and the other to be replaced.
 type MoranSampler struct {
-	rng *randist.RNG // random number generator.
+	rng *random.Rand// random number generator.
 	wg  sync.WaitGroup
 }
 
-func NewMoranSampler(r *randist.RNG) *MoranSampler {
-	return &MoranSampler{rng: r}
+func NewMoranSampler(src rand.Source) *MoranSampler {
+	return &MoranSampler{rng: random.New(src)}
 }
 
 func createNewLineages(parent *Lineage, t int) (a, b *Lineage) {
@@ -38,7 +39,7 @@ func (m *MoranSampler) Operate(p *Pop) {
 	p.NumGeneration++
 
 	// random choose a going-death one
-	d := randist.UniformRandomInt(m.rng, p.Size())
+	d := rand.Intn(p.Size())
 	// random choose a going-birth one according to the fitness.
 	meanFit := p.MeanFit()
 	var weights []float64
@@ -60,7 +61,7 @@ func (m *MoranSampler) Operate(p *Pop) {
 
 func (m *MoranSampler) Time(p *Pop) float64 {
 	lambda := 1 / float64(p.Size())
-	t := randist.ExponentialRandomFloat64(m.rng, lambda)
+	t := m.rng.Exponential(lambda)
 	return t
 }
 
