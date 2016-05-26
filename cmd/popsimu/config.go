@@ -21,6 +21,7 @@ type cmdConfig struct {
 	numGen     int // number of generations.
 	numRep     int // number of replicates.
 	sampleSize int
+	maxl       int
 
 	popConfigs []pop.Config
 }
@@ -35,6 +36,7 @@ func (c *cmdConfig) Flags(fs *flag.FlagSet) *flag.FlagSet {
 	fs.IntVar(&c.numGen, "g", 1, "number of generations")
 	fs.IntVar(&c.numRep, "r", 1, "number of replicates")
 	fs.IntVar(&c.sampleSize, "s", 1000, "sample size")
+	fs.IntVar(&c.maxl, "m", 100, "max length of correlation")
 	return fs
 }
 
