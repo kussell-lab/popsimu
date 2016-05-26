@@ -2,12 +2,12 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"os"
 	"runtime"
 
+	"encoding/json"
+
 	"github.com/mingzhi/popsimu/pop"
-	"gopkg.in/yaml.v2"
 )
 
 // Config to read flags and configure file.
@@ -45,12 +45,8 @@ func (c *cmdConfig) ParsePopConfigs() {
 	}
 	defer f.Close()
 
-	content, err := ioutil.ReadAll(f)
-	if err != nil {
-		panic(err)
-	}
-
-	if err := yaml.Unmarshal(content, &c.popConfigs); err != nil {
+	decorder := json.NewDecoder(f)
+	if err := decorder.Decode(&c.popConfigs); err != nil {
 		panic(err)
 	}
 }
