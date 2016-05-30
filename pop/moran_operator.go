@@ -3,7 +3,6 @@ package pop
 import (
 	"math"
 	"math/rand"
-	"sync"
 
 	"github.com/mingzhi/numgo/random"
 )
@@ -14,7 +13,6 @@ import (
 // one to reproduce and the other to be replaced.
 type MoranSampler struct {
 	rng *random.Rand // random number generator.
-	wg  sync.WaitGroup
 	rw  *RouletteWheel
 }
 
@@ -34,7 +32,6 @@ func createNewLineages(parent *Lineage, t int) (a, b *Lineage) {
 }
 
 func (m *MoranSampler) Operate(p *Pop) {
-	defer m.wg.Done()
 	if len(p.Lineages) < p.Size() {
 		p.NewLineages()
 	}
@@ -65,12 +62,4 @@ func (m *MoranSampler) Time(p *Pop) float64 {
 	lambda := 1 / float64(p.Size())
 	t := m.rng.ExpFloat64(lambda)
 	return t
-}
-
-func (m *MoranSampler) Wait() {
-	m.wg.Wait()
-}
-
-func (m *MoranSampler) Start() {
-	m.wg.Add(1)
 }

@@ -83,9 +83,9 @@ func generateEvents(popConfigs []pop.Config, pops []*pop.Pop, src rand.Source) (
 		switch c.FragGenerator {
 		case "exponential":
 			lambda := 1.0 / float64(c.Transfer.Out.Fragment)
-			inFragGenerator = pop.NewExpFrag(lambda, src)
+			outFragGenerator = pop.NewExpFrag(lambda, src)
 		default:
-			inFragGenerator = pop.NewConstantFrag(c.Transfer.In.Fragment)
+			outFragGenerator = pop.NewConstantFrag(c.Transfer.In.Fragment)
 		}
 
 		outTransferEvents := []*pop.Event{}

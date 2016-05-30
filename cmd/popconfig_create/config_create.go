@@ -56,6 +56,7 @@ func (p ParameterSet) String() string {
 	fmt.Fprintf(&b, "Fitness Effect: %v\n", p.FitnessEffects)
 	fmt.Fprintf(&b, "Sample Method: %v\n", p.SamplerMethod)
 	fmt.Fprintf(&b, "Frag Generator: %v\n", p.FragGenerator)
+	fmt.Fprintf(&b, "NumGen: %v\n", p.NumGen)
 
 	return b.String()
 }
@@ -106,7 +107,7 @@ func create(par ParameterSet) []pop.Config {
 											} else {
 												cfg.NumGen = cfg.Size * 10
 											}
-
+											println(cfg.NumGen)
 											cfgs = append(cfgs, cfg)
 										}
 									}
