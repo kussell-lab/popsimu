@@ -111,24 +111,26 @@ func (c *cmdTwoPops) Run(args []string) {
 func (c *cmdTwoPops) RunOne(src rand.Source) []*pop.Pop {
 	// Generate population list.
 	pops := make([]*pop.Pop, len(c.popConfigs))
+
+	r := rand.New(src)
+	// Randomly generate an acestral sequence.
+	genomeLength := c.popConfigs[0].Length
+	ancestor := make(pop.ByteSequence, genomeLength)
+	for i := 0; i < genomeLength; i++ {
+		ancestor[i] = c.popConfigs[0].Alphabet[r.Intn(len(c.popConfigs[0].Alphabet))]
+	}
+	genome := pop.NeutralGenome{Sequence: ancestor}
 	for i := 0; i < len(pops); i++ {
-		pops[i] = newPop(c.popConfigs[i], src)
+		pops[i] = newPop(c.popConfigs[i], &genome)
 	}
 	simu.Moran(pops, c.popConfigs, c.numGen)
 
 	return pops
 }
 
-func newPop(c pop.Config, src rand.Source) *pop.Pop {
+func newPop(c pop.Config, genome pop.Genome) *pop.Pop {
 	p := pop.New()
-	r := rand.New(src)
-	// Randomly generate an acestral sequence.
-	ancestor := make(pop.ByteSequence, c.Length)
-	for i := 0; i < c.Length; i++ {
-		ancestor[i] = c.Alphabet[r.Intn(len(c.Alphabet))]
-	}
-	genome := pop.NeutralGenome{Sequence: ancestor}
-	g := pop.NewSimplePopGenerator(&genome, c.Size)
+	g := pop.NewSimplePopGenerator(genome, c.Size)
 	g.Operate(p)
 	return p
 }
