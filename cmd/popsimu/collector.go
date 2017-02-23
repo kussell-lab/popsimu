@@ -33,9 +33,7 @@ func (c *Collector) Add(results CorrResults) {
 		for len(c.m[res.Type]) <= res.Lag {
 			c.m[res.Type] = append(c.m[res.Type], NewMeanVar())
 		}
-		if res.N > 0 {
-			c.m[res.Type][res.Lag].Add(res.Mean)
-		}
+		c.m[res.Type][res.Lag].Add(res.Mean)
 	}
 }
 
