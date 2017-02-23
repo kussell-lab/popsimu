@@ -122,7 +122,13 @@ func (c *cmdTwoPops) RunOne(src rand.Source) []*pop.Pop {
 func newPop(c pop.Config, src rand.Source) *pop.Pop {
 	p := pop.New()
 	r := rand.New(src)
-	g := pop.NewRandomPopGenerator(r, c.Size, c.Length, []byte(c.Alphabet))
+	// Randomly generate an acestral sequence.
+	ancestor := make(pop.ByteSequence, c.Length)
+	for i := 0; i < c.Length; i++ {
+		ancestor[i] = c.Alphabet[r.Intn(len(c.Alphabet))]
+	}
+	genome := pop.NeutralGenome{Sequence: ancestor}
+	g := pop.NewSimplePopGenerator(&genome, c.Size)
 	g.Operate(p)
 	return p
 }
