@@ -4,6 +4,7 @@ import (
 	"math"
 )
 
+// Pop is a population with a list of genomes.
 type Pop struct {
 	// Genomes stores a array of sequences
 	Genomes []Genome
@@ -14,22 +15,25 @@ type Pop struct {
 	TargetSize    int
 }
 
+// New returns a new Pop.
 func New() *Pop {
 	return &Pop{}
 }
 
+// Size returns the number of genomes.
 func (p *Pop) Size() int {
 	return len(p.Genomes)
 }
 
+// Length returns the length of a genome.
 func (p *Pop) Length() int {
 	if len(p.Genomes) == 0 {
 		return 0
-	} else {
-		return p.Genomes[0].Length()
 	}
+	return p.Genomes[0].Length()
 }
 
+// NewLineages create new lineages.
 func (p *Pop) NewLineages() {
 	p.Lineages = make([]*Lineage, p.Size())
 	for i := 0; i < p.Size(); i++ {
@@ -37,6 +41,7 @@ func (p *Pop) NewLineages() {
 	}
 }
 
+// MeanFit returns the mean of fitness.
 func (p *Pop) MeanFit() float64 {
 	var m float64
 	for i := 0; i < p.Size(); i++ {
@@ -45,8 +50,9 @@ func (p *Pop) MeanFit() float64 {
 	return m / float64(p.Size())
 }
 
+// MaxFit returns the maximum of fitness.
 func (p *Pop) MaxFit() float64 {
-	var max float64 = math.Inf(-1)
+	max := math.Inf(-1)
 	for i := 0; i < p.Size(); i++ {
 		if max < p.Genomes[i].Fitness() {
 			max = p.Genomes[i].Fitness()
@@ -67,6 +73,7 @@ type RandomPopGenerator struct {
 	Length   int // length of genome
 }
 
+// NewRandomPopGenerator return a Pop.
 func NewRandomPopGenerator(r Rand,
 	size, length int,
 	alphabet []byte) *RandomPopGenerator {
@@ -79,6 +86,7 @@ func NewRandomPopGenerator(r Rand,
 	}
 }
 
+// Operate create genomes for a population.
 func (r *RandomPopGenerator) Operate(p *Pop) {
 	// Randomly generate an acestral sequence.
 	ancestor := make(ByteSequence, r.Length)
@@ -108,10 +116,12 @@ type SimplePopGenerator struct {
 	Size     int // size of population
 }
 
+// NewSimplePopGenerator return a new SimplePopGenerator.
 func NewSimplePopGenerator(ancestor Genome, size int) *SimplePopGenerator {
 	return &SimplePopGenerator{Ancestor: ancestor, Size: size}
 }
 
+// Operate copy the ancestor to all genomes.
 func (s *SimplePopGenerator) Operate(p *Pop) {
 	for i := 0; i < s.Size; i++ {
 		var g Genome
