@@ -194,23 +194,19 @@ func calcCmFFT(matrix [][]float64, maxL int, circular bool) (mutCov, totCov []fl
 		means2[i] = desc.NewMean()
 	}
 
-	totMean := desc.NewMean()
 	for res := range resChan {
 		mean := res.mean
 		pxy := res.pxy
 		meanSquare := mean.GetResult() * mean.GetResult()
-		totMean.Append(mean)
 		for j := 0; j < maxL; j++ {
 			means1[j].Increment(pxy[j] - meanSquare)
 			means2[j].Increment(pxy[j])
 		}
 	}
 
-	totalSquare := totMean.GetResult() * totMean.GetResult()
-
 	for i := 0; i < maxL; i++ {
 		mutCov = append(mutCov, means1[i].GetResult())
-		totCov = append(totCov, means2[i].GetResult()-totalSquare)
+		totCov = append(totCov, means2[i].GetResult())
 	}
 
 	return
